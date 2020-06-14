@@ -55,41 +55,34 @@ class KvMasterServiceImpl final : public kvStore::KvNodeService::Service {
     grpc::Status RequestPut(grpc::ServerContext *context,
                       const kvStore::KeyValuePair *keyValue,
                       kvStore::RequestResult *result) override {
-      dict[keyValue->key()] = keyValue->value();
-      result->set_err(kvdefs::OK);
-      result->set_value(keyValue->key() + ":" + keyValue->value());
-
+      std::cout << "Received put request" << std::endl;
+      RedirectToDatanode(keyValue->key(), result);
       return grpc::Status::OK;
     }
 
     grpc::Status RequestRead(grpc::ServerContext *context,
                        const kvStore::KeyString *keyString,
                        kvStore::RequestResult *result) override {
-      if (dict.count(keyString->key())) {
-        result->set_err(kvdefs::OK);
-        result->set_value(dict[keyString->key()]);
-      } else {
-        result->set_err(kvdefs::NOTFOUND);
-      }
-
+      std::cout << "Received read request" << std::endl;
+      RedirectToDatanode(keyString->key(), result);
       return grpc::Status::OK;
     }
 
     grpc::Status RequestDelete(grpc::ServerContext *context,
                          const kvStore::KeyString *keyString,
                          kvStore::RequestResult *result) override {
-      if (dict.count(keyString->key())) {
-        dict.erase(dict.find(keyString->key()));
-        result->set_err(kvdefs::OK);
-      } else {
-        result->set_err(kvdefs::NOTFOUND);
-      }
-
+      std::cout << "Received delete request" << std::endl;
+      RedirectToDatanode(keyString->key(), result);
       return grpc::Status::OK;
     }
 
   private:
     std::map<std::string, std::string> dict;
+
+    void RedirectToDatanode(const std::string& key, kvStore::RequestResult *result) {
+      result->set_err(kvdefs::REDIRECT);
+      result->set_value("localhost:50052");
+    }
 };
 
 static void RunServer() {

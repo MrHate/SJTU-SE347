@@ -3,6 +3,8 @@
 #include <string>
 #include <map>
 
+#include "defines.h"
+
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/health_check_service_interface.h>
 #include <grpcpp/ext/proto_server_reflection_plugin.h>
@@ -20,6 +22,8 @@ class KvNodeServiceImpl final : public kvStore::KvNodeService::Service {
     grpc::Status RequestPut(grpc::ServerContext *context,
                       const kvStore::KeyValuePair *keyValue,
                       kvStore::RequestResult *result) override {
+      std::cout << "Received put request" << std::endl;
+
       dict[keyValue->key()] = keyValue->value();
       result->set_err(kvdefs::OK);
       result->set_value(keyValue->key() + ":" + keyValue->value());
@@ -30,6 +34,8 @@ class KvNodeServiceImpl final : public kvStore::KvNodeService::Service {
     grpc::Status RequestRead(grpc::ServerContext *context,
                        const kvStore::KeyString *keyString,
                        kvStore::RequestResult *result) override {
+      std::cout << "Received read request" << std::endl;
+
       if (dict.count(keyString->key())) {
         result->set_err(kvdefs::OK);
         result->set_value(dict[keyString->key()]);
@@ -43,6 +49,8 @@ class KvNodeServiceImpl final : public kvStore::KvNodeService::Service {
     grpc::Status RequestDelete(grpc::ServerContext *context,
                          const kvStore::KeyString *keyString,
                          kvStore::RequestResult *result) override {
+      std::cout << "Received delete request" << std::endl;
+
       if (dict.count(keyString->key())) {
         dict.erase(dict.find(keyString->key()));
         result->set_err(kvdefs::OK);

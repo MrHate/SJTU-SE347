@@ -41,11 +41,17 @@ class KvStoreClient {
     grpc::ClientContext context;
 
     grpc::Status status = stub_->RequestPut(&context, keyValue, &result);
-    if(status.ok() && result.err() == kvdefs::OK) {
+    if(!status.ok() || result.err() == kvdefs::FAILED) {
+      std::cout << "Put request failed." << std::endl;
+    }
+
+    if(result.err() == kvdefs::OK) {
       std::cout << "Put request success." << std::endl;
     }
-    else {
-      std::cout << "Put request failed." << std::endl;
+    else if(result.err() == kvdefs::REDIRECT)  {
+      std::cout << "Redirected..." << std::endl;
+      RedirectToDatanode(result.value());
+      RequestPut(key, value);
     }
   }
 
@@ -56,11 +62,17 @@ class KvStoreClient {
     grpc::ClientContext context;
 
     grpc::Status status = stub_->RequestRead(&context, keyString, &result);
-    if (status.ok() && result.err() == kvdefs::OK) {
+    if(!status.ok() || result.err() == kvdefs::FAILED) {
+      std::cout << "Read request failed." << std::endl;
+    }
+
+    if (result.err() == kvdefs::OK) {
       std::cout << result.value() << std::endl;
     }
-    else {
-      std::cout << "Read request failed." << std::endl;
+    else if(result.err() == kvdefs::REDIRECT)  {
+      std::cout << "Redirected..." << std::endl;
+      RedirectToDatanode(result.value());
+      RequestRead(key);
     }
   }
 
@@ -71,16 +83,29 @@ class KvStoreClient {
     grpc::ClientContext context;
 
     grpc::Status status = stub_->RequestDelete(&context, keyString, &result);
-    if (status.ok() && result.err() == kvdefs::OK) {
-      std::cout << result.value() << std::endl;
-    }
-    else {
+    if(!status.ok() || result.err() == kvdefs::FAILED) {
       std::cout << "Delete request failed." << std::endl;
+    }
+
+    if (result.err() == kvdefs::OK) {
+      std::cout << "Delete request success." << std::endl;
+    }
+    else if(result.err() == kvdefs::REDIRECT)  {
+      std::cout << "Redirected..." << std::endl;
+      RedirectToDatanode(result.value());
+      RequestRead(key);
     }
   }
 
 private:
   std::unique_ptr<kvStore::KvNodeService::Stub> stub_;
+
+  void RedirectToDatanode(const std::string& addr) {
+    std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(
+        addr, grpc::InsecureChannelCredentials());
+    std::unique_ptr<kvStore::KvNodeService::Stub> new_stub(kvStore::KvNodeService::NewStub(channel));
+    stub_.swap(new_stub);
+  }
 };
 
 int main(int argc, char** argv) {
