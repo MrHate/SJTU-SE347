@@ -1,6 +1,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <map>
 
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/health_check_service_interface.h>
@@ -25,24 +26,14 @@ class KvStoreMasterNode {
   KvStoreMasterNode(std::shared_ptr<Channel> channel)
       : stub_(KvDatanodeService::NewStub(channel)) {}
 
-  // Assembles the client's payload, sends it and presents the response back
-  // from the server.
   std::string SayHello(const std::string& user) {
-    // Data we are sending to the server.
     HelloRequest request;
     request.set_name(user);
 
-    // Container for the data we expect from the server.
     HelloReply reply;
-
-    // Context for the client. It could be used to convey extra information to
-    // the server and/or tweak certain RPC behaviors.
     ClientContext context;
 
-    // The actual RPC.
     Status status = stub_->SayHello(&context, request, &reply);
-
-    // Act upon its status.
     if (status.ok()) {
       return reply.message();
     } else {
@@ -59,17 +50,55 @@ class KvStoreMasterNode {
 class KvMasterServiceImpl final : public KvMasternodeService::Service {
     Status SayHello(ServerContext* context, const HelloRequest* request, 
                     HelloReply* reply) override {
-        std::string suffix("master");
-        reply->set_message(request->name() + suffix);
+      std::string suffix("master");
+      reply->set_message(request->name() + suffix);
 
-        KvStoreMasterNode masternode(grpc::CreateChannel(
-            "localhost:50052", grpc::InsecureChannelCredentials()));
-        std::string user("Hello ");
-        std::string datanode_reply = masternode.SayHello(user);
-        std::cout << "Greeter received: " << datanode_reply << std::endl;
+      KvStoreMasterNode masternode(grpc::CreateChannel(
+          "localhost:50052", grpc::InsecureChannelCredentials()));
+      std::string user("Hello ");
+      std::string datanode_reply = masternode.SayHello(user);
+      std::cout << "Greeter received: " << datanode_reply << std::endl;
 
-        return Status::OK;
+      return Status::OK;
     }
+
+    Status RequestPut(ServerContext* context, const kvStore::KeyValuePair* keyValue,
+                      kvStore::RequestResult* result) override {
+      dict[keyValue->key()] = keyValue->value();
+      result->set_err(0);
+      result->set_value(keyValue->key() + ":" + keyValue->value());
+
+      return Status::OK;
+    }
+
+    Status RequestRead(ServerContext* context, const kvStore::KeyString* keyString,
+                      kvStore::RequestResult* result) override {
+      if(dict.count(keyString->key())) {
+        result->set_err(0);
+        result->set_value(dict[keyString->key()]);
+      }
+      else {
+        result->set_err(1);
+      }
+
+      return Status::OK;
+    }
+
+    Status RequestDelete(ServerContext* context, const kvStore::KeyString* keyString,
+                      kvStore::RequestResult* result) override {
+      if(dict.count(keyString->key())) {
+        dict.erase(dict.find(keyString->key()));
+        result->set_err(0);
+      }
+      else {
+        result->set_err(1);
+      }
+
+      return Status::OK;
+    }
+
+    private:
+    std::map<std::string, std::string> dict;
 };
 
 static void RunServer() {

@@ -6,56 +6,69 @@
 
 #include "kvstore.grpc.pb.h"
 
-using grpc::Channel;
-using grpc::ClientContext;
-using grpc::Status;
-
-using kvStore::HelloRequest;
-using kvStore::HelloReply;
-using kvStore::KvMasternodeService;
-
 class KvStoreClient {
  public:
-  KvStoreClient(std::shared_ptr<Channel> channel)
-      : stub_(KvMasternodeService::NewStub(channel)) {}
+  KvStoreClient(std::shared_ptr<grpc::Channel> channel)
+      : stub_(kvStore::KvMasternodeService::NewStub(channel)) {}
 
-  // Assembles the client's payload, sends it and presents the response back
-  // from the server.
-  std::string SayHello(const std::string& user) {
-    // Data we are sending to the server.
-    HelloRequest request;
+  int SayHello(const std::string& user) {
+    kvStore::HelloRequest request;
     request.set_name(user);
 
-    // Container for the data we expect from the server.
-    HelloReply reply;
+    kvStore::HelloReply reply;
+    grpc::ClientContext context;
 
-    // Context for the client. It could be used to convey extra information to
-    // the server and/or tweak certain RPC behaviors.
-    ClientContext context;
+    grpc::Status status = stub_->SayHello(&context, request, &reply);
 
-    // The actual RPC.
-    Status status = stub_->SayHello(&context, request, &reply);
-
-    // Act upon its status.
     if (status.ok()) {
-      return reply.message();
+      std::cout << "Greeter received: " << reply.message();
+      return 0;
     } else {
-      std::cout << status.error_code() << ": " << status.error_message()
+      std::cout << status.error_code() << ": " << status.error_message() << std::endl
+                << "RPC failed"
                 << std::endl;
-      return "RPC failed";
+      return 1;
     }
   }
 
+  void RequestPut(const std::string& key, const std::string& value) {
+    kvStore::KeyValuePair keyValue;
+    keyValue.set_key(key);
+    keyValue.set_value(value);
+    kvStore::RequestResult result;
+    grpc::ClientContext context;
+
+    grpc::Status status = stub_->RequestPut(&context, keyValue, &result);
+  }
+
+  void RequestRead(const std::string& key) {
+    kvStore::KeyString keyString;
+    keyString.set_key(key);
+    kvStore::RequestResult result;
+    grpc::ClientContext context;
+
+    grpc::Status status = stub_->RequestRead(&context, keyString, &result);
+    if(status.ok() && result.err() == 0) {
+      std::cout << result.value() << std::endl;
+    }
+  }
+
+  void RequestDelete(const std::string& key) {
+    kvStore::KeyString keyString;
+    keyString.set_key(key);
+    kvStore::RequestResult result;
+    grpc::ClientContext context;
+
+    grpc::Status status = stub_->RequestDelete(&context, keyString, &result);
+  }
+
  private:
-  std::unique_ptr<KvMasternodeService::Stub> stub_;
+  std::unique_ptr<kvStore::KvMasternodeService::Stub> stub_;
 };
 
 int main(int argc, char** argv) {
-  // Instantiate the client. It requires a channel, out of which the actual RPCs
-  // are created. This channel models a connection to an endpoint specified by
-  // the argument "--target=" which is the only expected argument.
-  // We indicate that the channel isn't authenticated (use of
-  // InsecureChannelCredentials()).
+
+  // check "--target" argument
   std::string target_str;
   std::string arg_str("--target");
   if (argc > 1) {
@@ -76,11 +89,51 @@ int main(int argc, char** argv) {
   } else {
     target_str = "localhost:50051";
   }
+
+  // establish connection then do hello check
   KvStoreClient client(grpc::CreateChannel(
       target_str, grpc::InsecureChannelCredentials()));
   std::string user("Hello ");
-  std::string reply = client.SayHello(user);
-  std::cout << "Greeter received: " << reply << std::endl;
+  if(client.SayHello(user)) return 1;
+
+  // hello check passed, loop client operation
+  std::cout << "Connect established with " << target_str << std::endl
+            << "=====================================" << std::endl
+            << "(p)ut <key> <value>" << std::endl
+            << "(d)elete <key>" << std::endl
+            << "(r)ead key" << std::endl
+            << "(q)uit" << std::endl
+            << "====================================="
+            << std::endl;
+  char op;
+  std::string key, value;
+  while(!std::cin.eof()) {
+    std::cin >> op;
+    
+    switch(op) {
+      case 'p':
+        std::cin >> key >> value;
+        client.RequestPut(key, value);
+        break;
+
+      case 'd':
+        std::cin >> key;
+        client.RequestDelete(key);
+        break;
+
+      case 'r':
+        std::cin >> key;
+        client.RequestRead(key);
+        break;
+
+      case 'q':
+        return 0;
+
+      default:
+        std::cout << "invalid operation !" << std::endl;
+        std::cin.clear();
+    }
+  }
 
   return 0;
 }
