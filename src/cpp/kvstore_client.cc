@@ -12,12 +12,12 @@ using grpc::Status;
 
 using kvStore::HelloRequest;
 using kvStore::HelloReply;
-using kvStore::KvMaster;
+using kvStore::KvMasternodeService;
 
 class KvStoreClient {
  public:
   KvStoreClient(std::shared_ptr<Channel> channel)
-      : stub_(KvMaster::NewStub(channel)) {}
+      : stub_(KvMasternodeService::NewStub(channel)) {}
 
   // Assembles the client's payload, sends it and presents the response back
   // from the server.
@@ -47,7 +47,7 @@ class KvStoreClient {
   }
 
  private:
-  std::unique_ptr<KvMaster::Stub> stub_;
+  std::unique_ptr<KvMasternodeService::Stub> stub_;
 };
 
 int main(int argc, char** argv) {

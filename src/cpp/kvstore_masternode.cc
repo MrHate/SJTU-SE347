@@ -17,13 +17,13 @@ using grpc::ClientContext;
 
 using kvStore::HelloRequest;
 using kvStore::HelloReply;
-using kvStore::KvMaster;
-using kvStore::KvDatanode;
+using kvStore::KvMasternodeService;
+using kvStore::KvDatanodeService;
 
 class KvStoreMasterNode {
  public:
   KvStoreMasterNode(std::shared_ptr<Channel> channel)
-      : stub_(KvDatanode::NewStub(channel)) {}
+      : stub_(KvDatanodeService::NewStub(channel)) {}
 
   // Assembles the client's payload, sends it and presents the response back
   // from the server.
@@ -53,10 +53,10 @@ class KvStoreMasterNode {
   }
 
  private:
-  std::unique_ptr<KvDatanode::Stub> stub_;
+  std::unique_ptr<KvDatanodeService::Stub> stub_;
 };
 
-class KvMasterServiceImpl final : public KvMaster::Service {
+class KvMasterServiceImpl final : public KvMasternodeService::Service {
     Status SayHello(ServerContext* context, const HelloRequest* request, 
                     HelloReply* reply) override {
         std::string suffix("master");

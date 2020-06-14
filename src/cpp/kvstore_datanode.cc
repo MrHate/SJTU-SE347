@@ -15,9 +15,9 @@ using grpc::Status;
 
 using kvStore::HelloRequest;
 using kvStore::HelloReply;
-using kvStore::KvDatanode;
+using kvStore::KvDatanodeService;
 
-class KvDatanodeServiceImpl final : public KvDatanode::Service {
+class KvDatanodeServiceImpl final : public KvDatanodeService::Service {
     Status SayHello(ServerContext* context, const HelloRequest* request, 
                     HelloReply* reply) override {
         std::string suffix("datanode");

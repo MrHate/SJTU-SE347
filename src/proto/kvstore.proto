@@ -2,11 +2,11 @@ syntax = "proto3";
 
 package kvStore;
 
-service KvMaster {
+service KvMasternodeService {
     rpc SayHello (HelloRequest) returns (HelloReply) {}
 }
 
-service KvDatanode {
+service KvDatanodeService {
     rpc SayHello (HelloRequest) returns (HelloReply) {}
 }
 
