@@ -15,9 +15,9 @@ using grpc::Status;
 
 using kvStore::HelloRequest;
 using kvStore::HelloReply;
-using kvStore::KvStore;
+using kvStore::KvMaster;
 
-class KvStoreServiceImpl final : public KvStore::Service {
+class KvMasterServiceImpl final : public KvMaster::Service {
     Status SayHello(ServerContext* context, const HelloRequest* request, 
                     HelloReply* reply) override {
         std::string prefix("Hello ");
@@ -28,7 +28,7 @@ class KvStoreServiceImpl final : public KvStore::Service {
 
 void RunServer() {
     std::string server_address("0.0.0.0:50051");
-    KvStoreServiceImpl service;
+    KvMasterServiceImpl service;
 
     grpc::EnableDefaultHealthCheckService(true);
     grpc::reflection::InitProtoReflectionServerBuilderPlugin();

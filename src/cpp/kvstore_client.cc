@@ -12,12 +12,12 @@ using grpc::Status;
 
 using kvStore::HelloRequest;
 using kvStore::HelloReply;
-using kvStore::KvStore;
+using kvStore::KvMaster;
 
 class KvStoreClient {
  public:
   KvStoreClient(std::shared_ptr<Channel> channel)
-      : stub_(KvStore::NewStub(channel)) {}
+      : stub_(KvMaster::NewStub(channel)) {}
 
   // Assembles the client's payload, sends it and presents the response back
   // from the server.
@@ -47,7 +47,7 @@ class KvStoreClient {
   }
 
  private:
-  std::unique_ptr<KvStore::Stub> stub_;
+  std::unique_ptr<KvMaster::Stub> stub_;
 };
 
 int main(int argc, char** argv) {
@@ -76,10 +76,10 @@ int main(int argc, char** argv) {
   } else {
     target_str = "localhost:50051";
   }
-  KvStoreClient greeter(grpc::CreateChannel(
+  KvStoreClient client(grpc::CreateChannel(
       target_str, grpc::InsecureChannelCredentials()));
   std::string user("world");
-  std::string reply = greeter.SayHello(user);
+  std::string reply = client.SayHello(user);
   std::cout << "Greeter received: " << reply << std::endl;
 
   return 0;
