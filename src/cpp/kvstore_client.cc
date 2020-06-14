@@ -9,7 +9,7 @@
 class KvStoreClient {
  public:
    KvStoreClient(std::shared_ptr<grpc::Channel> channel)
-       : stub_(kvStore::KvMasternodeService::NewStub(channel)) {}
+       : stub_(kvStore::KvNodeService::NewStub(channel)) {}
 
    int SayHello(const std::string &user) {
      kvStore::HelloRequest request;
@@ -78,7 +78,7 @@ class KvStoreClient {
   }
 
 private:
-  std::unique_ptr<kvStore::KvMasternodeService::Stub> stub_;
+  std::unique_ptr<kvStore::KvNodeService::Stub> stub_;
 };
 
 int main(int argc, char** argv) {

@@ -18,13 +18,12 @@ using grpc::ClientContext;
 
 using kvStore::HelloRequest;
 using kvStore::HelloReply;
-using kvStore::KvMasternodeService;
-using kvStore::KvDatanodeService;
+using kvStore::KvNodeService;
 
 class KvStoreMasterNode {
  public:
   KvStoreMasterNode(std::shared_ptr<Channel> channel)
-      : stub_(KvDatanodeService::NewStub(channel)) {}
+      : stub_(KvNodeService::NewStub(channel)) {}
 
   std::string SayHello(const std::string& user) {
     HelloRequest request;
@@ -44,10 +43,10 @@ class KvStoreMasterNode {
   }
 
  private:
-  std::unique_ptr<KvDatanodeService::Stub> stub_;
+  std::unique_ptr<KvNodeService::Stub> stub_;
 };
 
-class KvMasterServiceImpl final : public KvMasternodeService::Service {
+class KvMasterServiceImpl final : public KvNodeService::Service {
     Status SayHello(ServerContext* context, const HelloRequest* request, 
                     HelloReply* reply) override {
       std::string suffix("master");

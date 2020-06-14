@@ -3,16 +3,12 @@ syntax = "proto3";
 package kvStore;
 
 // services
-service KvMasternodeService {
+service KvNodeService {
     rpc SayHello (HelloRequest) returns (HelloReply) {}
 
     rpc RequestPut(KeyValuePair) returns (RequestResult) {}
     rpc RequestRead(KeyString) returns (RequestResult) {}
     rpc RequestDelete(KeyString) returns (RequestResult) {}
-}
-
-service KvDatanodeService {
-    rpc SayHello (HelloRequest) returns (HelloReply) {}
 }
 
 // hello messages

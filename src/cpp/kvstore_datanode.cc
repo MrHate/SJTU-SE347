@@ -15,9 +15,9 @@ using grpc::Status;
 
 using kvStore::HelloRequest;
 using kvStore::HelloReply;
-using kvStore::KvDatanodeService;
+using kvStore::KvNodeService;
 
-class KvDatanodeServiceImpl final : public KvDatanodeService::Service {
+class KvNodeServiceImpl final : public KvNodeService::Service {
     Status SayHello(ServerContext* context, const HelloRequest* request, 
                     HelloReply* reply) override {
         std::string suffix("datanode");
@@ -28,7 +28,7 @@ class KvDatanodeServiceImpl final : public KvDatanodeService::Service {
 
 void RunServer() {
     std::string server_address("0.0.0.0:50052");
-    KvDatanodeServiceImpl service;
+    KvNodeServiceImpl service;
 
     grpc::EnableDefaultHealthCheckService(true);
     grpc::reflection::InitProtoReflectionServerBuilderPlugin();
