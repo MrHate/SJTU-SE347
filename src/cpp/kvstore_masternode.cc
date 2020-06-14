@@ -9,30 +9,19 @@
 
 #include "kvstore.grpc.pb.h"
 
-using grpc::Server;
-using grpc::ServerBuilder;
-using grpc::ServerContext;
-using grpc::Status;
-using grpc::Channel;
-using grpc::ClientContext;
-
-using kvStore::HelloRequest;
-using kvStore::HelloReply;
-using kvStore::KvNodeService;
-
 class KvStoreMasterNode {
  public:
-  KvStoreMasterNode(std::shared_ptr<Channel> channel)
-      : stub_(KvNodeService::NewStub(channel)) {}
+  KvStoreMasterNode(std::shared_ptr<grpc::Channel> channel)
+      : stub_(kvStore::KvNodeService::NewStub(channel)) {}
 
   std::string SayHello(const std::string& user) {
-    HelloRequest request;
+    kvStore::HelloRequest request;
     request.set_name(user);
 
-    HelloReply reply;
-    ClientContext context;
+    kvStore::HelloReply reply;
+    grpc::ClientContext context;
 
-    Status status = stub_->SayHello(&context, request, &reply);
+    grpc::Status status = stub_->SayHello(&context, request, &reply);
     if (status.ok()) {
       return reply.message();
     } else {
@@ -43,12 +32,12 @@ class KvStoreMasterNode {
   }
 
  private:
-  std::unique_ptr<KvNodeService::Stub> stub_;
+  std::unique_ptr<kvStore::KvNodeService::Stub> stub_;
 };
 
-class KvMasterServiceImpl final : public KvNodeService::Service {
-    Status SayHello(ServerContext* context, const HelloRequest* request, 
-                    HelloReply* reply) override {
+class KvMasterServiceImpl final : public kvStore::KvNodeService::Service {
+    grpc::Status SayHello(grpc::ServerContext* context, const kvStore::HelloRequest* request, 
+                    kvStore::HelloReply* reply) override {
       std::string suffix("master");
       reply->set_message(request->name() + suffix);
 
@@ -58,20 +47,20 @@ class KvMasterServiceImpl final : public KvNodeService::Service {
       std::string datanode_reply = masternode.SayHello(user);
       std::cout << "Greeter received: " << datanode_reply << std::endl;
 
-      return Status::OK;
+      return grpc::Status::OK;
     }
 
-    Status RequestPut(ServerContext *context,
+    grpc::Status RequestPut(grpc::ServerContext *context,
                       const kvStore::KeyValuePair *keyValue,
                       kvStore::RequestResult *result) override {
       dict[keyValue->key()] = keyValue->value();
       result->set_err(0);
       result->set_value(keyValue->key() + ":" + keyValue->value());
 
-      return Status::OK;
+      return grpc::Status::OK;
     }
 
-    Status RequestRead(ServerContext *context,
+    grpc::Status RequestRead(grpc::ServerContext *context,
                        const kvStore::KeyString *keyString,
                        kvStore::RequestResult *result) override {
       if (dict.count(keyString->key())) {
@@ -81,10 +70,10 @@ class KvMasterServiceImpl final : public KvNodeService::Service {
         result->set_err(1);
       }
 
-      return Status::OK;
+      return grpc::Status::OK;
     }
 
-    Status RequestDelete(ServerContext *context,
+    grpc::Status RequestDelete(grpc::ServerContext *context,
                          const kvStore::KeyString *keyString,
                          kvStore::RequestResult *result) override {
       if (dict.count(keyString->key())) {
@@ -94,7 +83,7 @@ class KvMasterServiceImpl final : public KvNodeService::Service {
         result->set_err(1);
       }
 
-      return Status::OK;
+      return grpc::Status::OK;
     }
 
   private:
@@ -107,14 +96,14 @@ static void RunServer() {
 
     grpc::EnableDefaultHealthCheckService(true);
     grpc::reflection::InitProtoReflectionServerBuilderPlugin();
-    ServerBuilder builder;
+    grpc::ServerBuilder builder;
     // Listen on the given address without any authentication mechanism.
     builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
     // Register "service" as the instance through which we'll communicate with
     // clients. In this case it corresponds to an *synchronous* service.
     builder.RegisterService(&service);
     // Finally assemble the server.
-    std::unique_ptr<Server> server(builder.BuildAndStart());
+    std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
     std::cout << "Server listening on " << server_address << std::endl;
 
     // Wait for the server to shutdown. Note that some other thread must be
