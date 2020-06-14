@@ -2,6 +2,8 @@
 #include <memory>
 #include <string>
 
+#include "defines.h"
+
 #include <grpcpp/grpcpp.h>
 
 #include "kvstore.grpc.pb.h"
@@ -39,7 +41,7 @@ class KvStoreClient {
     grpc::ClientContext context;
 
     grpc::Status status = stub_->RequestPut(&context, keyValue, &result);
-    if(status.ok() && result.err() == 0) {
+    if(status.ok() && result.err() == kvdefs::OK) {
       std::cout << "Put request success." << std::endl;
     }
     else {
@@ -54,7 +56,7 @@ class KvStoreClient {
     grpc::ClientContext context;
 
     grpc::Status status = stub_->RequestRead(&context, keyString, &result);
-    if (status.ok() && result.err() == 0) {
+    if (status.ok() && result.err() == kvdefs::OK) {
       std::cout << result.value() << std::endl;
     }
     else {
@@ -69,7 +71,7 @@ class KvStoreClient {
     grpc::ClientContext context;
 
     grpc::Status status = stub_->RequestDelete(&context, keyString, &result);
-    if (status.ok() && result.err() == 0) {
+    if (status.ok() && result.err() == kvdefs::OK) {
       std::cout << result.value() << std::endl;
     }
     else {

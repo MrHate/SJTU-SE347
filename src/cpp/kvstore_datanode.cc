@@ -1,6 +1,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <map>
 
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/health_check_service_interface.h>
@@ -15,6 +16,45 @@ class KvNodeServiceImpl final : public kvStore::KvNodeService::Service {
         reply->set_message(request->name() + suffix);
         return grpc::Status::OK;
     }
+
+    grpc::Status RequestPut(grpc::ServerContext *context,
+                      const kvStore::KeyValuePair *keyValue,
+                      kvStore::RequestResult *result) override {
+      dict[keyValue->key()] = keyValue->value();
+      result->set_err(kvdefs::OK);
+      result->set_value(keyValue->key() + ":" + keyValue->value());
+
+      return grpc::Status::OK;
+    }
+
+    grpc::Status RequestRead(grpc::ServerContext *context,
+                       const kvStore::KeyString *keyString,
+                       kvStore::RequestResult *result) override {
+      if (dict.count(keyString->key())) {
+        result->set_err(kvdefs::OK);
+        result->set_value(dict[keyString->key()]);
+      } else {
+        result->set_err(kvdefs::NOTFOUND);
+      }
+
+      return grpc::Status::OK;
+    }
+
+    grpc::Status RequestDelete(grpc::ServerContext *context,
+                         const kvStore::KeyString *keyString,
+                         kvStore::RequestResult *result) override {
+      if (dict.count(keyString->key())) {
+        dict.erase(dict.find(keyString->key()));
+        result->set_err(kvdefs::OK);
+      } else {
+        result->set_err(kvdefs::NOTFOUND);
+      }
+
+      return grpc::Status::OK;
+    }
+
+  private:
+    std::map<std::string, std::string> dict;
 };
 
 void RunServer() {
