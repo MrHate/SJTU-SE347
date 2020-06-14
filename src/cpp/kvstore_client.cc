@@ -39,6 +39,12 @@ class KvStoreClient {
     grpc::ClientContext context;
 
     grpc::Status status = stub_->RequestPut(&context, keyValue, &result);
+    if(status.ok() && result.err() == 0) {
+      std::cout << "Put request success." << std::endl;
+    }
+    else {
+      std::cout << "Put request failed." << std::endl;
+    }
   }
 
   void RequestRead(const std::string &key) {
@@ -51,6 +57,9 @@ class KvStoreClient {
     if (status.ok() && result.err() == 0) {
       std::cout << result.value() << std::endl;
     }
+    else {
+      std::cout << "Read request failed." << std::endl;
+    }
   }
 
   void RequestDelete(const std::string &key) {
@@ -60,6 +69,12 @@ class KvStoreClient {
     grpc::ClientContext context;
 
     grpc::Status status = stub_->RequestDelete(&context, keyString, &result);
+    if (status.ok() && result.err() == 0) {
+      std::cout << result.value() << std::endl;
+    }
+    else {
+      std::cout << "Delete request failed." << std::endl;
+    }
   }
 
 private:
