@@ -1,7 +1,7 @@
 #include <iostream>
+#include <map>
 #include <memory>
 #include <string>
-#include <map>
 
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/health_check_service_interface.h>
@@ -62,8 +62,9 @@ class KvMasterServiceImpl final : public KvMasternodeService::Service {
       return Status::OK;
     }
 
-    Status RequestPut(ServerContext* context, const kvStore::KeyValuePair* keyValue,
-                      kvStore::RequestResult* result) override {
+    Status RequestPut(ServerContext *context,
+                      const kvStore::KeyValuePair *keyValue,
+                      kvStore::RequestResult *result) override {
       dict[keyValue->key()] = keyValue->value();
       result->set_err(0);
       result->set_value(keyValue->key() + ":" + keyValue->value());
@@ -71,33 +72,33 @@ class KvMasterServiceImpl final : public KvMasternodeService::Service {
       return Status::OK;
     }
 
-    Status RequestRead(ServerContext* context, const kvStore::KeyString* keyString,
-                      kvStore::RequestResult* result) override {
-      if(dict.count(keyString->key())) {
+    Status RequestRead(ServerContext *context,
+                       const kvStore::KeyString *keyString,
+                       kvStore::RequestResult *result) override {
+      if (dict.count(keyString->key())) {
         result->set_err(0);
         result->set_value(dict[keyString->key()]);
-      }
-      else {
+      } else {
         result->set_err(1);
       }
 
       return Status::OK;
     }
 
-    Status RequestDelete(ServerContext* context, const kvStore::KeyString* keyString,
-                      kvStore::RequestResult* result) override {
-      if(dict.count(keyString->key())) {
+    Status RequestDelete(ServerContext *context,
+                         const kvStore::KeyString *keyString,
+                         kvStore::RequestResult *result) override {
+      if (dict.count(keyString->key())) {
         dict.erase(dict.find(keyString->key()));
         result->set_err(0);
-      }
-      else {
+      } else {
         result->set_err(1);
       }
 
       return Status::OK;
     }
 
-    private:
+  private:
     std::map<std::string, std::string> dict;
 };
 

@@ -6,9 +6,9 @@ package kvStore;
 service KvMasternodeService {
     rpc SayHello (HelloRequest) returns (HelloReply) {}
 
-    rpc RequestPut (KeyValuePair) returns (RequestResult) {}
-    rpc RequestRead (KeyString) returns (RequestResult) {}
-    rpc RequestDelete (KeyString) returns (RequestResult) {}
+    rpc RequestPut(KeyValuePair) returns (RequestResult) {}
+    rpc RequestRead(KeyString) returns (RequestResult) {}
+    rpc RequestDelete(KeyString) returns (RequestResult) {}
 }
 
 service KvDatanodeService {
@@ -20,21 +20,17 @@ message HelloRequest {
     string name = 1;
 }
 
-message HelloReply {
-    string message = 1;
-}
+message HelloReply { string message = 1; }
 
 // kvstore communication messages
 message KeyValuePair {
-    string key = 1;
-    string value = 2;
+  string key = 1;
+  string value = 2;
 }
 
-message KeyString {
-    string key = 1;
-}
+message KeyString { string key = 1; }
 
 message RequestResult {
-    string value = 1;
-    int64 err = 2;
+  string value = 1;
+  int64 err = 2;
 }
