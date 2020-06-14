@@ -129,7 +129,7 @@ include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 
 # Targets greeter_[async_](client|server)
 foreach(_target
-  kvstore_client kvstore_master)
+  kvstore_client kvstore_master kvstore_datanode)
   add_executable(${_target} "./src/cpp/${_target}.cc"
     ${kv_proto_srcs}
     ${kv_grpc_srcs})

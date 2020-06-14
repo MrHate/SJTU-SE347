@@ -78,7 +78,7 @@ int main(int argc, char** argv) {
   }
   KvStoreClient client(grpc::CreateChannel(
       target_str, grpc::InsecureChannelCredentials()));
-  std::string user("world");
+  std::string user("Hello ");
   std::string reply = client.SayHello(user);
   std::cout << "Greeter received: " << reply << std::endl;
 
