@@ -5,6 +5,8 @@
 
 #include "defines.h"
 
+#include <zookeeper/zookeeper.h>
+
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/health_check_service_interface.h>
 #include <grpcpp/ext/proto_server_reflection_plugin.h>
@@ -106,8 +108,19 @@ static void RunServer() {
     server->Wait();
 }
 
-int main(int argc, char** argv) {
-    RunServer();
 
-    return 0;
+
+void zktest_watcher_g(zhandle_t* zh, int type, int state,
+        const char* path, void* watcherCtx) {
+  std::cout << "watcher !" << std::endl;
+}
+
+
+int main(int argc, char** argv) {
+  zhandle_t* zkhandle = zookeeper_init("0.0.0.0:2181",
+            zktest_watcher_g, 10000, 0, nullptr, 0);
+
+  RunServer();
+
+  return 0;
 }

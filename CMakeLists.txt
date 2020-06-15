@@ -9,6 +9,7 @@ else()
 endif()
 
 find_package(Threads REQUIRED)
+link_libraries(zookeeper_mt)
 
 if(GRPC_AS_SUBMODULE)
   # One way to build a projects that uses gRPC is to just include the
