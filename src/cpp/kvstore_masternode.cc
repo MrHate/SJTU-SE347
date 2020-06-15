@@ -112,6 +112,15 @@ static void RunServer(const std::string& server_addr) {
 }
 
 void cleanup() {
+  String_vector children;
+  if (zoo_get_children(zkhandle, "/master", 0, &children) == ZOK) {
+    for (int i = 0; i < children.count; ++i) {
+      std::cout << "deleting " << children.data[i] << std::endl;
+      std::string path = "/master/";
+      path += children.data[i];
+      zoo_delete(zkhandle, path.c_str(), -1);
+    }
+  }
   zoo_delete(zkhandle, "/master", -1);
   zookeeper_close(zkhandle);
 }
@@ -119,7 +128,7 @@ void cleanup() {
 // zk callbacks
 void zkwatcher_callback(zhandle_t* zh, int type, int state,
         const char* path, void* watcherCtx) {
-  std::cout << "watcher !" << std::endl;
+  
 }
 
 // handle ctrl-c
