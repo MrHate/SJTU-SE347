@@ -13,6 +13,10 @@
 
 #include "kvstore.grpc.pb.h"
 
+namespace {
+  zhandle_t* zkhandle;
+}
+
 class KvStoreMasterNode {
  public:
   KvStoreMasterNode(std::shared_ptr<grpc::Channel> channel)
@@ -87,21 +91,20 @@ class KvMasterServiceImpl final : public kvStore::KvNodeService::Service {
     }
 };
 
-static void RunServer() {
-    std::string server_address("0.0.0.0:50051");
+static void RunServer(const std::string& server_addr) {
     KvMasterServiceImpl service;
 
     grpc::EnableDefaultHealthCheckService(true);
     grpc::reflection::InitProtoReflectionServerBuilderPlugin();
     grpc::ServerBuilder builder;
     // Listen on the given address without any authentication mechanism.
-    builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
+    builder.AddListeningPort(server_addr, grpc::InsecureServerCredentials());
     // Register "service" as the instance through which we'll communicate with
     // clients. In this case it corresponds to an *synchronous* service.
     builder.RegisterService(&service);
     // Finally assemble the server.
     std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
-    std::cout << "Server listening on " << server_address << std::endl;
+    std::cout << "Server listening on " << server_addr << std::endl;
 
     // Wait for the server to shutdown. Note that some other thread must be
     // responsible for shutting down the server for this call to ever return.
@@ -109,18 +112,42 @@ static void RunServer() {
 }
 
 
-
-void zktest_watcher_g(zhandle_t* zh, int type, int state,
+// zk callbacks
+void zkwatcher_callback(zhandle_t* zh, int type, int state,
         const char* path, void* watcherCtx) {
   std::cout << "watcher !" << std::endl;
 }
 
+// handle ctrl-c
+void sig_handler(int sig) {
+  if(sig == SIGINT) {
+    zoo_delete(zkhandle, "/master", -1);
+    zookeeper_close(zkhandle);
+    exit(EXIT_SUCCESS);
+  }
+}
 
+// main
 int main(int argc, char** argv) {
-  zhandle_t* zkhandle = zookeeper_init("0.0.0.0:2181",
-            zktest_watcher_g, 10000, 0, nullptr, 0);
+  std::string server_addr = "0.0.0.0:50051";
 
-  RunServer();
+  zkhandle = zookeeper_init("0.0.0.0:2181",
+            zkwatcher_callback, 10000, 0, nullptr, 0);
+  if(!zkhandle) {
+    std::cerr << "Failed connecting to zk server." << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
+  int ret = zoo_create(zkhandle, "/master", server_addr.c_str(), server_addr.length(), &ZOO_OPEN_ACL_UNSAFE, 0, nullptr, 0);
+  if(ret) {
+    std::cerr << "Failed acreate: " << ret << std::endl;
+    zookeeper_close(zkhandle);
+    exit(EXIT_FAILURE);
+  }
+
+  signal(SIGINT, sig_handler);
+
+  RunServer(server_addr);
 
   return 0;
 }
