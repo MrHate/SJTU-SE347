@@ -93,7 +93,7 @@ class KvStoreClient {
     else if(result.err() == kvdefs::REDIRECT)  {
       std::cout << "Redirected..." << std::endl;
       RedirectToDatanode(result.value());
-      RequestRead(key);
+      RequestDelete(key);
     }
   }
 
@@ -144,7 +144,7 @@ int main(int argc, char** argv) {
             << "=====================================" << std::endl
             << "(p)ut <key> <value>" << std::endl
             << "(d)elete <key>" << std::endl
-            << "(r)ead key" << std::endl
+            << "(r)ead <key>" << std::endl
             << "(q)uit" << std::endl
             << "=====================================" << std::endl;
   char op;
