@@ -111,6 +111,10 @@ static void RunServer(const std::string& server_addr) {
     server->Wait();
 }
 
+void cleanup() {
+  zoo_delete(zkhandle, "/master", -1);
+  zookeeper_close(zkhandle);
+}
 
 // zk callbacks
 void zkwatcher_callback(zhandle_t* zh, int type, int state,
@@ -121,8 +125,7 @@ void zkwatcher_callback(zhandle_t* zh, int type, int state,
 // handle ctrl-c
 void sig_handler(int sig) {
   if(sig == SIGINT) {
-    zoo_delete(zkhandle, "/master", -1);
-    zookeeper_close(zkhandle);
+    cleanup();
     exit(EXIT_SUCCESS);
   }
 }
@@ -140,8 +143,8 @@ int main(int argc, char** argv) {
 
   int ret = zoo_create(zkhandle, "/master", server_addr.c_str(), server_addr.length(), &ZOO_OPEN_ACL_UNSAFE, 0, nullptr, 0);
   if(ret) {
-    std::cerr << "Failed acreate: " << ret << std::endl;
-    zookeeper_close(zkhandle);
+    std::cerr << "Failed creating znode: " << ret << std::endl;
+    cleanup();
     exit(EXIT_FAILURE);
   }
 
