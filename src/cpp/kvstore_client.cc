@@ -11,7 +11,8 @@
 class KvStoreClient {
  public:
    KvStoreClient(std::shared_ptr<grpc::Channel> channel)
-       : stub_(kvStore::KvNodeService::NewStub(channel)) {}
+       : stub_(kvStore::KvNodeService::NewStub(channel)),
+         old_stub_(nullptr) {}
 
    int SayHello(const std::string &user) {
      kvStore::HelloRequest request;
@@ -52,6 +53,7 @@ class KvStoreClient {
       std::cout << "Redirected..." << std::endl;
       RedirectToDatanode(result.value());
       RequestPut(key, value);
+      RedirectToMasternode();
     }
   }
 
@@ -73,6 +75,7 @@ class KvStoreClient {
       std::cout << "Redirected..." << std::endl;
       RedirectToDatanode(result.value());
       RequestRead(key);
+      RedirectToMasternode();
     }
   }
 
@@ -94,17 +97,25 @@ class KvStoreClient {
       std::cout << "Redirected..." << std::endl;
       RedirectToDatanode(result.value());
       RequestDelete(key);
+      RedirectToMasternode();
     }
   }
 
 private:
   std::unique_ptr<kvStore::KvNodeService::Stub> stub_;
+  std::unique_ptr<kvStore::KvNodeService::Stub> old_stub_;
 
   void RedirectToDatanode(const std::string& addr) {
     std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(
         addr, grpc::InsecureChannelCredentials());
     std::unique_ptr<kvStore::KvNodeService::Stub> new_stub(kvStore::KvNodeService::NewStub(channel));
     stub_.swap(new_stub);
+    old_stub_.swap(new_stub);
+  }
+
+  void RedirectToMasternode() {
+    stub_.swap(old_stub_);
+    old_stub_.reset(nullptr);
   }
 };
 
