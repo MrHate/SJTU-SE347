@@ -1,7 +1,8 @@
 #include <iostream>
-#include <map>
 #include <memory>
 #include <string>
+#include <vector>
+#include <functional>
 
 #include "defines.h"
 
@@ -15,6 +16,7 @@
 
 namespace {
   zhandle_t* zkhandle;
+  std::vector<std::string> datanodes_addr;
 }
 
 class KvStoreMasterNode {
@@ -62,32 +64,36 @@ class KvMasterServiceImpl final : public kvStore::KvNodeService::Service {
                       const kvStore::KeyValuePair *keyValue,
                       kvStore::RequestResult *result) override {
       std::cout << "Received put request" << std::endl;
-      RedirectToDatanode(keyValue->key(), result);
-      return grpc::Status::OK;
+      return RedirectToDatanode(keyValue->key(), result);
     }
 
     grpc::Status RequestRead(grpc::ServerContext *context,
                        const kvStore::KeyString *keyString,
                        kvStore::RequestResult *result) override {
       std::cout << "Received read request" << std::endl;
-      RedirectToDatanode(keyString->key(), result);
-      return grpc::Status::OK;
+      return RedirectToDatanode(keyString->key(), result);
     }
 
     grpc::Status RequestDelete(grpc::ServerContext *context,
                          const kvStore::KeyString *keyString,
                          kvStore::RequestResult *result) override {
       std::cout << "Received delete request" << std::endl;
-      RedirectToDatanode(keyString->key(), result);
-      return grpc::Status::OK;
+      return RedirectToDatanode(keyString->key(), result);
     }
 
   private:
     std::map<std::string, std::string> dict;
 
-    void RedirectToDatanode(const std::string& key, kvStore::RequestResult *result) {
+    grpc::Status RedirectToDatanode(const std::string& key, kvStore::RequestResult *result) {
+      if(datanodes_addr.empty()) return grpc::Status::CANCELLED;
       result->set_err(kvdefs::REDIRECT);
-      result->set_value("localhost:50052");
+      result->set_value(datanodes_addr[Key2Index(key)]);
+      return grpc::Status::OK;
+    }
+
+    std::size_t Key2Index(const std::string& key) {
+      std::hash<std::string> hasher;
+      return hasher(key) % datanodes_addr.size();
     }
 };
 
@@ -142,6 +148,7 @@ void sig_handler(int sig) {
 // main
 int main(int argc, char** argv) {
   std::string server_addr = "0.0.0.0:50051";
+  datanodes_addr.push_back("localhost:50052");
 
   zkhandle = zookeeper_init("0.0.0.0:2181",
             zkwatcher_callback, 10000, 0, nullptr, 0);

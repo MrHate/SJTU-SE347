@@ -44,13 +44,13 @@ class KvStoreClient {
     grpc::Status status = stub_->RequestPut(&context, keyValue, &result);
     if(!status.ok() || result.err() == kvdefs::FAILED) {
       std::cout << "Put request failed." << std::endl;
+      return;
     }
 
     if(result.err() == kvdefs::OK) {
       std::cout << "Put request success." << std::endl;
     }
     else if(result.err() == kvdefs::REDIRECT)  {
-      std::cout << "Redirected..." << std::endl;
       RedirectToDatanode(result.value());
       RequestPut(key, value);
       RedirectToMasternode();
@@ -66,13 +66,13 @@ class KvStoreClient {
     grpc::Status status = stub_->RequestRead(&context, keyString, &result);
     if(!status.ok() || result.err() == kvdefs::FAILED) {
       std::cout << "Read request failed." << std::endl;
+      return;
     }
 
     if (result.err() == kvdefs::OK) {
       std::cout << result.value() << std::endl;
     }
     else if(result.err() == kvdefs::REDIRECT)  {
-      std::cout << "Redirected..." << std::endl;
       RedirectToDatanode(result.value());
       RequestRead(key);
       RedirectToMasternode();
@@ -88,13 +88,13 @@ class KvStoreClient {
     grpc::Status status = stub_->RequestDelete(&context, keyString, &result);
     if(!status.ok() || result.err() == kvdefs::FAILED) {
       std::cout << "Delete request failed." << std::endl;
+      return;
     }
 
     if (result.err() == kvdefs::OK) {
       std::cout << "Delete request success." << std::endl;
     }
     else if(result.err() == kvdefs::REDIRECT)  {
-      std::cout << "Redirected..." << std::endl;
       RedirectToDatanode(result.value());
       RequestDelete(key);
       RedirectToMasternode();
@@ -167,16 +167,19 @@ int main(int argc, char** argv) {
     case 'p':
       std::cin >> key >> value;
       client.RequestPut(key, value);
+      std::cin.ignore(INT_MAX);
       break;
 
     case 'd':
       std::cin >> key;
       client.RequestDelete(key);
+      std::cin.ignore(INT_MAX);
       break;
 
     case 'r':
       std::cin >> key;
       client.RequestRead(key);
+      std::cin.ignore(INT_MAX);
       break;
 
     case 'q':
@@ -184,7 +187,7 @@ int main(int argc, char** argv) {
 
     default:
       std::cout << "invalid operation !" << std::endl;
-      std::cin.clear();
+      std::cin.ignore(INT_MAX);
     }
   }
 
