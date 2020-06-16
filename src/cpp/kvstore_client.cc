@@ -167,19 +167,22 @@ int main(int argc, char** argv) {
     case 'p':
       std::cin >> key >> value;
       client.RequestPut(key, value);
-      std::cin.ignore(INT_MAX);
+      std::cin.clear();
+      std::cin.ignore(INT_MAX, '\n');
       break;
 
     case 'd':
       std::cin >> key;
       client.RequestDelete(key);
-      std::cin.ignore(INT_MAX);
+      std::cin.clear();
+      std::cin.ignore(INT_MAX, '\n');
       break;
 
     case 'r':
       std::cin >> key;
       client.RequestRead(key);
-      std::cin.ignore(INT_MAX);
+      std::cin.clear();
+      std::cin.ignore(INT_MAX, '\n');
       break;
 
     case 'q':
@@ -187,7 +190,8 @@ int main(int argc, char** argv) {
 
     default:
       std::cout << "invalid operation !" << std::endl;
-      std::cin.ignore(INT_MAX);
+      std::cin.clear();
+      std::cin.ignore(INT_MAX, '\n');
     }
   }
 

@@ -132,9 +132,34 @@ void cleanup() {
 }
 
 // zk callbacks
+void zktest_string_completion(int rc, const String_vector* strings, const void *data) {
+
+}
+
 void zkwatcher_callback(zhandle_t* zh, int type, int state,
         const char* path, void* watcherCtx) {
-  
+  std::cout << "something happeded" << std::endl;
+  if(type == ZOO_CHILD_EVENT) {
+    std::cout << "child event: " << path << std::endl;
+    String_vector children;
+
+    if (zoo_get_children(zh, "/master", 0, &children) == ZOK) {
+      std::vector<std::string> new_datanodes_addr;
+      for (int i = 0; i < children.count; ++i) {
+        std::string child_path = "/master/";
+        child_path += children.data[i];
+
+        char buf[100];
+        int buf_len;
+
+        zoo_get(zh, child_path.c_str(), 0, buf, &buf_len, NULL);
+        new_datanodes_addr.emplace_back(buf);
+      }
+      datanodes_addr.swap(new_datanodes_addr);
+    }
+  }
+
+  zoo_awget_children(zh, "/master", zkwatcher_callback, nullptr, zktest_string_completion, nullptr);
 }
 
 // handle ctrl-c
@@ -148,7 +173,6 @@ void sig_handler(int sig) {
 // main
 int main(int argc, char** argv) {
   std::string server_addr = "0.0.0.0:50051";
-  datanodes_addr.push_back("localhost:50052");
 
   zkhandle = zookeeper_init("0.0.0.0:2181",
             zkwatcher_callback, 10000, 0, nullptr, 0);
