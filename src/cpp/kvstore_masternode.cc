@@ -1,7 +1,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
-#include <vector>
+#include <map>
 #include <functional>
 
 #include "defines.h"
@@ -12,9 +12,11 @@
 
 #include "kvstore.grpc.pb.h"
 
+using strmap_t = std::map<std::string, std::string>;
+
 namespace {
   zhandle_t* zkhandle;
-  std::vector<std::string> datanodes_addr;
+  strmap_t datanodes_addr;
 }
 
 class KvStoreMasterNode {
@@ -85,13 +87,15 @@ class KvMasterServiceImpl final : public kvStore::KvNodeService::Service {
     grpc::Status RedirectToDatanode(const std::string& key, kvStore::RequestResult *result) {
       if(datanodes_addr.empty()) return grpc::Status::CANCELLED;
       result->set_err(kvdefs::REDIRECT);
-      result->set_value(datanodes_addr[Key2Index(key)]);
+      result->set_value(datanodes_addr[Key2Node(key)]);
       return grpc::Status::OK;
     }
 
-    std::size_t Key2Index(const std::string& key) {
+    std::string Key2Node(const std::string& key) {
       std::hash<std::string> hasher;
-      return hasher(key) % datanodes_addr.size();
+      std::string res("data");
+      res += std::to_string(hasher(key) % datanodes_addr.size() + 1);
+      return res;
     }
 };
 
@@ -133,16 +137,17 @@ void zkwatcher_callback(zhandle_t* zh, int type, int state,
     String_vector children;
 
     if (zoo_get_children(zh, "/master", 0, &children) == ZOK) {
-      std::vector<std::string> new_datanodes_addr;
+      strmap_t new_datanodes_addr;
       for (int i = 0; i < children.count; ++i) {
-        std::string child_path = "/master/";
-        child_path += children.data[i];
+        std::string child_path("/master/"), child_name(children.data[i]);
+        child_path += child_name;
 
         char buf[100];
         int buf_len;
 
         zoo_get(zh, child_path.c_str(), 0, buf, &buf_len, NULL);
-        new_datanodes_addr.emplace_back(buf);
+        new_datanodes_addr[child_name] = buf;
+        std::cout << "added " << child_name << ": " << buf << std::endl;
       }
       datanodes_addr.swap(new_datanodes_addr);
     }
