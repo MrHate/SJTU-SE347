@@ -14,5 +14,6 @@ enum NOTIFICATOIN_NO {
 };
 
 int del_znode_recursive(zhandle_t* zh, const char* path);
+std::string extract_data_node(const char* buf);
 
 }

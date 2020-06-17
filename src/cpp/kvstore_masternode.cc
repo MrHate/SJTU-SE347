@@ -139,15 +139,19 @@ void zkwatcher_callback(zhandle_t* zh, int type, int state,
     if (zoo_get_children(zh, "/master", 0, &children) == ZOK) {
       strmap_t new_datanodes_addr;
       for (int i = 0; i < children.count; ++i) {
-        std::string child_path("/master/"), child_name(children.data[i]);
+        std::string child_path("/master/"),
+                    child_name(children.data[i]),
+                    child_node(kvdefs::extract_data_node(children.data[i]));
         child_path += child_name;
 
-        char buf[100];
+        char buf[50] = {0};
         int buf_len;
 
         zoo_get(zh, child_path.c_str(), 0, buf, &buf_len, NULL);
-        new_datanodes_addr[child_name] = buf;
-        std::cout << "added " << child_name << ": " << buf << std::endl;
+        if(new_datanodes_addr.count(child_node) == 0 || child_node == child_name) {
+          new_datanodes_addr[child_node] = buf;
+          std::cout << "added " << child_name << " as " << child_node << " to " << buf << std::endl;
+        }
       }
       datanodes_addr.swap(new_datanodes_addr);
     }
