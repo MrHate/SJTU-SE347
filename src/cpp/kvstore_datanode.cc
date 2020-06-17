@@ -16,6 +16,7 @@ namespace {
   zhandle_t* zkhandle;
   int my_data_id;
   std::string my_znode_path;
+  std::string my_server_addr;
 }
 
 class KvDataServiceImpl final : public kvStore::KvNodeService::Service {
@@ -94,7 +95,7 @@ void RunServer(const std::string& server_addr) {
 }
 
 void cleanup() {
-  kvdefs::del_znode_recursive(zkhandle, my_znode_path.c_str());
+  zoo_delete(zkhandle, my_znode_path.c_str(), -1);
   zookeeper_close(zkhandle);
 }
 
@@ -113,7 +114,7 @@ void sig_handler(int sig) {
 }
 
 int main(int argc, char** argv) {
-  std::string server_addr = "0.0.0.0:50052";
+  my_server_addr = "0.0.0.0:50052";
   my_data_id = 1;
 
   std::stringstream strm;
@@ -127,8 +128,19 @@ int main(int argc, char** argv) {
     exit(EXIT_FAILURE);
   }
 
-  int ret = zoo_create(zkhandle, my_znode_path.c_str(), server_addr.c_str(), server_addr.length(), &ZOO_OPEN_ACL_UNSAFE, 0, nullptr, 0);
-  if(ret) {
+  int ret = zoo_create(zkhandle, my_znode_path.c_str(), my_server_addr.c_str(), my_server_addr.length(), &ZOO_OPEN_ACL_UNSAFE, 0, nullptr, 0);
+  if(ret == ZNODEEXISTS) {
+    int my_backup_id = 1;
+    do {
+      strm << "\n";
+      strm.ignore(INT_MAX, '\n');
+
+      strm << my_znode_path << "/backup" << my_backup_id;
+      ret = zoo_create(zkhandle, strm.str().c_str(), my_server_addr.c_str(), my_server_addr.length(), &ZOO_OPEN_ACL_UNSAFE, 0, nullptr, 0);
+    } while(ret == ZNODEEXISTS);
+    my_znode_path = strm.str();
+  }
+  else if(ret) {
     std::cerr << "Failed creating znode: " << ret << std::endl;
     cleanup();
     exit(EXIT_FAILURE);
@@ -136,7 +148,7 @@ int main(int argc, char** argv) {
 
   signal(SIGINT, sig_handler);
 
-  RunServer(server_addr);
+  RunServer(my_server_addr);
 
   return 0;
 }
