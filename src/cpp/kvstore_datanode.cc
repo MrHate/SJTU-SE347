@@ -2,6 +2,7 @@
 #include <memory>
 #include <string>
 #include <map>
+#include <sstream>
 
 #include "defines.h"
 
@@ -13,6 +14,8 @@
 
 namespace {
   zhandle_t* zkhandle;
+  int my_data_id;
+  std::string my_znode_path;
 }
 
 class KvDataServiceImpl final : public kvStore::KvNodeService::Service {
@@ -91,7 +94,7 @@ void RunServer(const std::string& server_addr) {
 }
 
 void cleanup() {
-  zoo_delete(zkhandle, "/master/data1", -1);
+  kvdefs::del_znode_recursive(zkhandle, my_znode_path.c_str());
   zookeeper_close(zkhandle);
 }
 
@@ -111,6 +114,11 @@ void sig_handler(int sig) {
 
 int main(int argc, char** argv) {
   std::string server_addr = "0.0.0.0:50052";
+  my_data_id = 1;
+
+  std::stringstream strm;
+  strm << "/master/data" << my_data_id;
+  my_znode_path = strm.str();
   
   zkhandle = zookeeper_init("0.0.0.0:2181",
             zkwatcher_callback, 10000, 0, nullptr, 0);
@@ -119,7 +127,7 @@ int main(int argc, char** argv) {
     exit(EXIT_FAILURE);
   }
 
-  int ret = zoo_create(zkhandle, "/master/data1", server_addr.c_str(), server_addr.length(), &ZOO_OPEN_ACL_UNSAFE, 0, nullptr, 0);
+  int ret = zoo_create(zkhandle, my_znode_path.c_str(), server_addr.c_str(), server_addr.length(), &ZOO_OPEN_ACL_UNSAFE, 0, nullptr, 0);
   if(ret) {
     std::cerr << "Failed creating znode: " << ret << std::endl;
     cleanup();

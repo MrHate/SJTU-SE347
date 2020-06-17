@@ -9,6 +9,6 @@ enum REQUEST_ERR_NO {
   FAILED
 };
 
-int del_znode_recusive(zhandle_t* zh, const char* path);
+int del_znode_recursive(zhandle_t* zh, const char* path);
 
 }

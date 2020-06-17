@@ -128,12 +128,15 @@ add_custom_command(
 # Include generated *.pb.h files
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 
+set(my_unities_srcs "./src/cpp/unities.cc")
+
 # Targets greeter_[async_](client|server)
 foreach(_target
   kvstore_client kvstore_masternode kvstore_datanode)
   add_executable(${_target} "./src/cpp/${_target}.cc"
     ${kv_proto_srcs}
-    ${kv_grpc_srcs})
+    ${kv_grpc_srcs}
+    ${my_unities_srcs})
   target_link_libraries(${_target}
     ${_REFLECTION}
     ${_GRPC_GRPCPP}
