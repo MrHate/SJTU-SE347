@@ -70,6 +70,25 @@ class KvDataServiceImpl final : public kvStore::KvNodeService::Service {
     return grpc::Status::OK;
   }
 
+  grpc::Status Notify(grpc::ServerContext *context,
+                      const kvStore::NotificationMsg *notification,
+                      kvStore::NotificationResult *result) override {
+    switch(notification->nid()) {
+      case kvdefs::SETPRIMARY: 
+      {
+        std::stringstream strm;
+        strm << "/master/data" << my_data_id;
+        my_znode_path = strm.str();
+      }
+      break;
+        
+      default:
+      return grpc::Status::CANCELLED;
+    }
+
+    return grpc::Status::OK;
+  }
+
 private:
   std::map<std::string, std::string> dict;
 };
@@ -95,7 +114,6 @@ void RunServer(const std::string& server_addr) {
 }
 
 void cleanup() {
-  zoo_delete(zkhandle, my_znode_path.c_str(), -1);
   zookeeper_close(zkhandle);
 }
 
@@ -128,17 +146,12 @@ int main(int argc, char** argv) {
     exit(EXIT_FAILURE);
   }
 
-  int ret = zoo_create(zkhandle, my_znode_path.c_str(), my_server_addr.c_str(), my_server_addr.length(), &ZOO_OPEN_ACL_UNSAFE, 0, nullptr, 0);
+  int ret = zoo_create(zkhandle, my_znode_path.c_str(), my_server_addr.c_str(), my_server_addr.length(), 
+                       &ZOO_OPEN_ACL_UNSAFE, ZOO_EPHEMERAL, nullptr, 0);
   if(ret == ZNODEEXISTS) {
-    int my_backup_id = 1;
-    do {
-      strm << "\n";
-      strm.ignore(INT_MAX, '\n');
-
-      strm << my_znode_path << "/backup" << my_backup_id;
-      ret = zoo_create(zkhandle, strm.str().c_str(), my_server_addr.c_str(), my_server_addr.length(), &ZOO_OPEN_ACL_UNSAFE, 0, nullptr, 0);
-    } while(ret == ZNODEEXISTS);
-    my_znode_path = strm.str();
+    my_znode_path += "_backup";
+    ret = zoo_create(zkhandle, my_znode_path.c_str(), my_server_addr.c_str(), my_server_addr.length(),
+                     &ZOO_OPEN_ACL_UNSAFE, ZOO_EPHEMERAL|ZOO_SEQUENCE, nullptr, 0);
   }
   else if(ret) {
     std::cerr << "Failed creating znode: " << ret << std::endl;

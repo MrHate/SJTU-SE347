@@ -148,6 +148,7 @@ void zkwatcher_callback(zhandle_t* zh, int type, int state,
     }
   }
 
+  // re-register watcher function
   zoo_awget_children(zh, "/master", zkwatcher_callback, nullptr, zktest_string_completion, nullptr);
 }
 

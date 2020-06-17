@@ -9,6 +9,8 @@ service KvNodeService {
     rpc RequestPut(KeyValuePair) returns (RequestResult) {}
     rpc RequestRead(KeyString) returns (RequestResult) {}
     rpc RequestDelete(KeyString) returns (RequestResult) {}
+
+    rpc Notify(NotificationMsg) returns (NotificationResult) {}
 }
 
 // hello messages
@@ -29,4 +31,13 @@ message KeyString { string key = 1; }
 message RequestResult {
   string value = 1;
   int64 err = 2;
+}
+
+// notification
+message NotificationMsg {
+  int64 nid = 1;
+}
+
+message NotificationResult {
+
 }
