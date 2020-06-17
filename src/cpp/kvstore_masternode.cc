@@ -117,17 +117,24 @@ static void RunServer(const std::string& server_addr) {
     server->Wait();
 }
 
-void cleanup() {
+int del_znode_recusive(zhandle_t* zh, const char* path) {
   String_vector children;
-  if (zoo_get_children(zkhandle, "/master", 0, &children) == ZOK) {
+  if (zoo_get_children(zh, path, 0, &children) == ZOK) {
     for (int i = 0; i < children.count; ++i) {
-      std::cout << "deleting " << children.data[i] << std::endl;
-      std::string path = "/master/";
-      path += children.data[i];
-      zoo_delete(zkhandle, path.c_str(), -1);
+      std::string child_path(path);
+      child_path += "/";
+      child_path += children.data[i];
+
+      int ret = del_znode_recusive(zh, child_path.c_str());
+      if(ret != ZOK) return ret;
     }
   }
-  zoo_delete(zkhandle, "/master", -1);
+  std::cout << "deleting " << path << std::endl;
+  return zoo_delete(zh, path, -1);
+}
+
+void cleanup() {
+  del_znode_recusive(zkhandle, "/master");
   zookeeper_close(zkhandle);
 }
 
