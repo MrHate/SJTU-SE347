@@ -6,8 +6,6 @@
 
 #include "defines.h"
 
-#include <zookeeper/zookeeper.h>
-
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/health_check_service_interface.h>
 #include <grpcpp/ext/proto_server_reflection_plugin.h>
@@ -117,7 +115,7 @@ static void RunServer(const std::string& server_addr) {
     server->Wait();
 }
 
-int del_znode_recusive(zhandle_t* zh, const char* path) {
+int kvdefs::del_znode_recusive(zhandle_t* zh, const char* path) {
   String_vector children;
   if (zoo_get_children(zh, path, 0, &children) == ZOK) {
     for (int i = 0; i < children.count; ++i) {
@@ -125,7 +123,7 @@ int del_znode_recusive(zhandle_t* zh, const char* path) {
       child_path += "/";
       child_path += children.data[i];
 
-      int ret = del_znode_recusive(zh, child_path.c_str());
+      int ret = kvdefs::del_znode_recusive(zh, child_path.c_str());
       if(ret != ZOK) return ret;
     }
   }
@@ -134,7 +132,7 @@ int del_znode_recusive(zhandle_t* zh, const char* path) {
 }
 
 void cleanup() {
-  del_znode_recusive(zkhandle, "/master");
+  kvdefs::del_znode_recusive(zkhandle, "/master");
   zookeeper_close(zkhandle);
 }
 

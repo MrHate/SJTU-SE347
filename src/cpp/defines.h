@@ -1,3 +1,5 @@
+#include <zookeeper/zookeeper.h>
+
 namespace kvdefs {
 
 enum REQUEST_ERR_NO {
@@ -6,5 +8,7 @@ enum REQUEST_ERR_NO {
   REDIRECT,
   FAILED
 };
+
+int del_znode_recusive(zhandle_t* zh, const char* path);
 
 }
