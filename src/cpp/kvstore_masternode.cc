@@ -19,32 +19,6 @@ namespace {
   strmap_t datanodes_addr;
 }
 
-class KvStoreMasterNode {
- public:
-  KvStoreMasterNode(std::shared_ptr<grpc::Channel> channel)
-      : stub_(kvStore::KvNodeService::NewStub(channel)) {}
-
-  std::string SayHello(const std::string& user) {
-    kvStore::HelloRequest request;
-    request.set_name(user);
-
-    kvStore::HelloReply reply;
-    grpc::ClientContext context;
-
-    grpc::Status status = stub_->SayHello(&context, request, &reply);
-    if (status.ok()) {
-      return reply.message();
-    } else {
-      std::cout << status.error_code() << ": " << status.error_message()
-                << std::endl;
-      return "RPC failed";
-    }
-  }
-
- private:
-  std::unique_ptr<kvStore::KvNodeService::Stub> stub_;
-};
-
 class KvMasterServiceImpl final : public kvStore::KvNodeService::Service {
     grpc::Status SayHello(grpc::ServerContext* context, const kvStore::HelloRequest* request, 
                     kvStore::HelloReply* reply) override {
