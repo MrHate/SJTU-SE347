@@ -7,6 +7,7 @@ service KvNodeService {
     rpc SayHello (HelloRequest) returns (HelloReply) {}
 
     rpc Request(RequestContent) returns (RequestResult) {}
+    rpc Sync(SyncContent) returns (SyncResult) {}
 }
 
 // hello messages
@@ -26,4 +27,17 @@ message RequestContent {
 message RequestResult {
   string value = 1;
   int64 err = 2;
+}
+
+// sync messages
+message SyncContent {
+  int64 pterm = 1;
+  int64 pindex = 2;
+  int64 term = 3;
+  int64 index = 4;
+  RequestContent req = 5;
+}
+
+message SyncResult {
+  int64 err = 1;
 }

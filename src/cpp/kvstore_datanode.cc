@@ -13,14 +13,16 @@
 
 #include "kvstore.grpc.pb.h"
 
-namespace {
-  zhandle_t* zkhandle;
-  int my_data_id;
-  std::string my_znode_path;
-  std::string my_server_addr;
+zhandle_t* zkhandle;
+int my_data_id;
+std::string my_znode_path;
+std::string my_server_addr;
 
+std::vector<kvStore::SyncContent> log_ents;
+std::map<std::string, std::string> dict;
 
-}
+void AppendLog(const kvStore::RequestContent *req);
+grpc::Status ApplyLog(kvStore::RequestResult *result);
 
 class KvDataServiceImpl final : public kvStore::KvNodeService::Service {
   grpc::Status SayHello(grpc::ServerContext *context,
@@ -35,41 +37,64 @@ class KvDataServiceImpl final : public kvStore::KvNodeService::Service {
                        const kvStore::RequestContent *keyValue,
                        kvStore::RequestResult *result) override {
     std::cout << "received request: " << keyValue->op() << std::endl;
-    switch (keyValue->op()) {
-    case kvdefs::PUT:
-      dict[keyValue->key()] = keyValue->value();
-      result->set_err(kvdefs::OK);
-      result->set_value(keyValue->key() + ":" + keyValue->value());
-      break;
-
-    case kvdefs::READ:
-      if (dict.count(keyValue->key())) {
-        result->set_err(kvdefs::OK);
-        result->set_value(dict[keyValue->key()]);
-      } else {
-        result->set_err(kvdefs::NOTFOUND);
-      }
-      break;
-
-    case kvdefs::DELETE:
-      if (dict.count(keyValue->key())) {
-        dict.erase(dict.find(keyValue->key()));
-        result->set_err(kvdefs::OK);
-      } else {
-        result->set_err(kvdefs::NOTFOUND);
-      }
-      break;
-
-    default:
-      return grpc::Status::CANCELLED;
-    }
-
-    return grpc::Status::OK;
+    
+    AppendLog(keyValue);
+    grpc::Status ret = ApplyLog(result);
+    return ret;
   }
 
-private:
-  std::map<std::string, std::string> dict;
+  grpc::Status Sync(grpc::ServerContext *context,
+                    const kvStore::SyncContent *ent,
+                    kvStore::SyncResult *result) override {
+    return grpc::Status::OK;
+  }
 };
+
+void AppendLog(const kvStore::RequestContent *req) {
+  kvStore::SyncContent ent;
+  ent.set_index(log_ents.size());
+  kvStore::RequestContent *req_clone = new kvStore::RequestContent(*req);
+  ent.set_allocated_req(req_clone);
+  log_ents.push_back(ent);
+}
+
+grpc::Status ApplyLog(kvStore::RequestResult *result) {
+  assert(log_ents.size());
+
+  const kvStore::RequestContent *req = &(log_ents.back().req());
+  switch (req->op()) {
+  case kvdefs::PUT:
+    dict[req->key()] = req->value();
+    result->set_err(kvdefs::OK);
+    result->set_value(req->key() + ":" + req->value());
+    break;
+
+  case kvdefs::READ:
+    if (dict.count(req->key())) {
+      result->set_err(kvdefs::OK);
+      result->set_value(dict[req->key()]);
+    } else {
+      result->set_err(kvdefs::NOTFOUND);
+    }
+    break;
+
+  case kvdefs::DELETE:
+    if (dict.count(req->key())) {
+      dict.erase(dict.find(req->key()));
+      result->set_err(kvdefs::OK);
+    } else {
+      result->set_err(kvdefs::NOTFOUND);
+    }
+    break;
+
+  default:
+    std::cout << "failed here " << __LINE__ << std::endl;
+    return grpc::Status::CANCELLED;
+  }
+
+  return grpc::Status::OK;
+
+}
 
 void RunServer(const std::string& server_addr) {
   KvDataServiceImpl service;

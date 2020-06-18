@@ -15,6 +15,11 @@ enum NOTIFICATOIN_NO {
 
 enum REQUEST_OP_NO { PUT = 200, READ, DELETE };
 
+enum SYNC_ERR_NO {
+  SYNC_SUCC = 300,
+  SYNC_FAIL
+};
+
 int del_znode_recursive(zhandle_t* zh, const char* path);
 std::string extract_data_node(const char* buf);
 
