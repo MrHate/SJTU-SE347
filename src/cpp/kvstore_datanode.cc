@@ -2,6 +2,7 @@
 #include <memory>
 #include <string>
 #include <map>
+#include <vector>
 #include <sstream>
 
 #include "defines.h"
@@ -17,6 +18,8 @@ namespace {
   int my_data_id;
   std::string my_znode_path;
   std::string my_server_addr;
+
+
 }
 
 class KvDataServiceImpl final : public kvStore::KvNodeService::Service {
@@ -29,7 +32,7 @@ class KvDataServiceImpl final : public kvStore::KvNodeService::Service {
   }
 
   grpc::Status Request(grpc::ServerContext *context,
-                       const kvStore::KeyValuePair *keyValue,
+                       const kvStore::RequestContent *keyValue,
                        kvStore::RequestResult *result) override {
     std::cout << "received request: " << keyValue->op() << std::endl;
     switch (keyValue->op()) {

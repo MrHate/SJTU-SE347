@@ -30,7 +30,7 @@ class KvMasterServiceImpl final : public kvStore::KvNodeService::Service {
     }
 
     grpc::Status Request(grpc::ServerContext *context,
-                         const kvStore::KeyValuePair *keyValue,
+                         const kvStore::RequestContent *keyValue,
                          kvStore::RequestResult *result) override {
       std::cout << "Received request" << std::endl;
       return RedirectToDatanode(keyValue->key(), result);

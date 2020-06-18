@@ -35,7 +35,7 @@ class KvStoreClient {
   }
 
   void RequestPut(const std::string &key, const std::string &value) {
-    kvStore::KeyValuePair keyValue;
+    kvStore::RequestContent keyValue;
     keyValue.set_key(key);
     keyValue.set_value(value);
     keyValue.set_op(kvdefs::PUT);
@@ -59,7 +59,7 @@ class KvStoreClient {
   }
 
   void RequestRead(const std::string &key) {
-    kvStore::KeyValuePair keyString;
+    kvStore::RequestContent keyString;
     keyString.set_key(key);
     keyString.set_value("");
     keyString.set_op(kvdefs::READ);
@@ -84,7 +84,7 @@ class KvStoreClient {
   }
 
   void RequestDelete(const std::string &key) {
-    kvStore::KeyValuePair keyString;
+    kvStore::RequestContent keyString;
     keyString.set_key(key);
     keyString.set_value("");
     keyString.set_op(kvdefs::DELETE);

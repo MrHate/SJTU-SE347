@@ -6,7 +6,7 @@ package kvStore;
 service KvNodeService {
     rpc SayHello (HelloRequest) returns (HelloReply) {}
 
-    rpc Request(KeyValuePair) returns (RequestResult) {}
+    rpc Request(RequestContent) returns (RequestResult) {}
 }
 
 // hello messages
@@ -17,7 +17,7 @@ message HelloRequest {
 message HelloReply { string message = 1; }
 
 // kvstore communication messages
-message KeyValuePair {
+message RequestContent {
   string key = 1;
   string value = 2;
   int64 op = 3;
