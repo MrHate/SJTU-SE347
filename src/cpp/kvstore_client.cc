@@ -74,11 +74,9 @@ class KvStoreClient {
 
     if (result.err() == kvdefs::OK) {
       std::cout << result.value() << std::endl;
-    }
-    else if(result.err() == kvdefs::NOTFOUND) {
+    } else if (result.err() == kvdefs::NOTFOUND) {
       std::cout << "not found" << std::endl;
-    }
-    else if(result.err() == kvdefs::REDIRECT)  {
+    } else if (result.err() == kvdefs::REDIRECT) {
       RedirectToDatanode(result.value());
       RequestRead(key);
       RedirectToMasternode();
@@ -101,11 +99,9 @@ class KvStoreClient {
 
     if (result.err() == kvdefs::OK) {
       std::cout << "Delete request success." << std::endl;
-    }
-    else if(result.err() == kvdefs::NOTFOUND) {
+    } else if (result.err() == kvdefs::NOTFOUND) {
       std::cout << "not found" << std::endl;
-    }
-    else if(result.err() == kvdefs::REDIRECT)  {
+    } else if (result.err() == kvdefs::REDIRECT) {
       RedirectToDatanode(result.value());
       RequestDelete(key);
       RedirectToMasternode();

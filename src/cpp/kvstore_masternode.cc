@@ -56,8 +56,8 @@ class KvMasterServiceImpl final : public kvStore::KvNodeService::Service {
     }
 
     grpc::Status Request(grpc::ServerContext *context,
-                      const kvStore::KeyValuePair *keyValue,
-                      kvStore::RequestResult *result) override {
+                         const kvStore::KeyValuePair *keyValue,
+                         kvStore::RequestResult *result) override {
       std::cout << "Received request" << std::endl;
       return RedirectToDatanode(keyValue->key(), result);
     }
