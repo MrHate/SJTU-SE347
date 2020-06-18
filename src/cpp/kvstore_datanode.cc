@@ -28,62 +28,37 @@ class KvDataServiceImpl final : public kvStore::KvNodeService::Service {
     return grpc::Status::OK;
   }
 
-  grpc::Status RequestPut(grpc::ServerContext *context,
+  grpc::Status Request(grpc::ServerContext *context,
                           const kvStore::KeyValuePair *keyValue,
                           kvStore::RequestResult *result) override {
-    std::cout << "Received put request" << std::endl;
+    std::cout << "received request: " << keyValue->op() << std::endl;
+    switch(keyValue->op()) {
+      case kvdefs::PUT:
+        dict[keyValue->key()] = keyValue->value();
+        result->set_err(kvdefs::OK);
+        result->set_value(keyValue->key() + ":" + keyValue->value());
+        break;
+      
+      case kvdefs::READ:
+        if (dict.count(keyValue->key())) {
+          result->set_err(kvdefs::OK);
+          result->set_value(dict[keyValue->key()]);
+        } else {
+          result->set_err(kvdefs::NOTFOUND);
+        }
+        break;
 
-    dict[keyValue->key()] = keyValue->value();
-    result->set_err(kvdefs::OK);
-    result->set_value(keyValue->key() + ":" + keyValue->value());
+      case kvdefs::DELETE:
+        if (dict.count(keyValue->key())) {
+          dict.erase(dict.find(keyValue->key()));
+          result->set_err(kvdefs::OK);
+        } else {
+          result->set_err(kvdefs::NOTFOUND);
+        }
+        break;
 
-    return grpc::Status::OK;
-  }
-
-  grpc::Status RequestRead(grpc::ServerContext *context,
-                           const kvStore::KeyString *keyString,
-                           kvStore::RequestResult *result) override {
-    std::cout << "Received read request" << std::endl;
-
-    if (dict.count(keyString->key())) {
-      result->set_err(kvdefs::OK);
-      result->set_value(dict[keyString->key()]);
-    } else {
-      result->set_err(kvdefs::NOTFOUND);
-    }
-
-    return grpc::Status::OK;
-  }
-
-  grpc::Status RequestDelete(grpc::ServerContext *context,
-                             const kvStore::KeyString *keyString,
-                             kvStore::RequestResult *result) override {
-    std::cout << "Received delete request" << std::endl;
-
-    if (dict.count(keyString->key())) {
-      dict.erase(dict.find(keyString->key()));
-      result->set_err(kvdefs::OK);
-    } else {
-      result->set_err(kvdefs::NOTFOUND);
-    }
-
-    return grpc::Status::OK;
-  }
-
-  grpc::Status Notify(grpc::ServerContext *context,
-                      const kvStore::NotificationMsg *notification,
-                      kvStore::NotificationResult *result) override {
-    switch(notification->nid()) {
-      case kvdefs::SETPRIMARY: 
-      {
-        std::stringstream strm;
-        strm << "/master/data" << my_data_id;
-        my_znode_path = strm.str();
-      }
-      break;
-        
       default:
-      return grpc::Status::CANCELLED;
+        return grpc::Status::CANCELLED;
     }
 
     return grpc::Status::OK;
@@ -132,7 +107,27 @@ void sig_handler(int sig) {
 }
 
 int main(int argc, char** argv) {
-  my_server_addr = "0.0.0.0:50052";
+  // check "--target" argument
+  std::string arg_str("--target");
+  if (argc > 1) {
+    std::string arg_val = argv[1];
+    size_t start_pos = arg_val.find(arg_str);
+    if (start_pos != std::string::npos) {
+      start_pos += arg_str.size();
+      if (arg_val[start_pos] == '=') {
+        my_server_addr = arg_val.substr(start_pos + 1);
+      } else {
+        std::cout << "The only correct argument syntax is --target=" << std::endl;
+        return 0;
+      }
+    } else {
+      std::cout << "The only acceptable argument is --target=" << std::endl;
+      return 0;
+    }
+  } else {
+    exit(EXIT_FAILURE);
+  }
+
   my_data_id = 1;
 
   std::stringstream strm;

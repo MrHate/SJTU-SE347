@@ -38,10 +38,11 @@ class KvStoreClient {
     kvStore::KeyValuePair keyValue;
     keyValue.set_key(key);
     keyValue.set_value(value);
+    keyValue.set_op(kvdefs::PUT);
     kvStore::RequestResult result;
     grpc::ClientContext context;
 
-    grpc::Status status = stub_->RequestPut(&context, keyValue, &result);
+    grpc::Status status = stub_->Request(&context, keyValue, &result);
     if(!status.ok() || result.err() == kvdefs::FAILED) {
       std::cout << "Put request failed." << std::endl;
       return;
@@ -58,12 +59,14 @@ class KvStoreClient {
   }
 
   void RequestRead(const std::string &key) {
-    kvStore::KeyString keyString;
+    kvStore::KeyValuePair keyString;
     keyString.set_key(key);
+    keyString.set_value("");
+    keyString.set_op(kvdefs::READ);
     kvStore::RequestResult result;
     grpc::ClientContext context;
 
-    grpc::Status status = stub_->RequestRead(&context, keyString, &result);
+    grpc::Status status = stub_->Request(&context, keyString, &result);
     if(!status.ok() || result.err() == kvdefs::FAILED) {
       std::cout << "Read request failed." << std::endl;
       return;
@@ -71,6 +74,9 @@ class KvStoreClient {
 
     if (result.err() == kvdefs::OK) {
       std::cout << result.value() << std::endl;
+    }
+    else if(result.err() == kvdefs::NOTFOUND) {
+      std::cout << "not found" << std::endl;
     }
     else if(result.err() == kvdefs::REDIRECT)  {
       RedirectToDatanode(result.value());
@@ -80,12 +86,14 @@ class KvStoreClient {
   }
 
   void RequestDelete(const std::string &key) {
-    kvStore::KeyString keyString;
+    kvStore::KeyValuePair keyString;
     keyString.set_key(key);
+    keyString.set_value("");
+    keyString.set_op(kvdefs::DELETE);
     kvStore::RequestResult result;
     grpc::ClientContext context;
 
-    grpc::Status status = stub_->RequestDelete(&context, keyString, &result);
+    grpc::Status status = stub_->Request(&context, keyString, &result);
     if(!status.ok() || result.err() == kvdefs::FAILED) {
       std::cout << "Delete request failed." << std::endl;
       return;
@@ -93,6 +101,9 @@ class KvStoreClient {
 
     if (result.err() == kvdefs::OK) {
       std::cout << "Delete request success." << std::endl;
+    }
+    else if(result.err() == kvdefs::NOTFOUND) {
+      std::cout << "not found" << std::endl;
     }
     else if(result.err() == kvdefs::REDIRECT)  {
       RedirectToDatanode(result.value());

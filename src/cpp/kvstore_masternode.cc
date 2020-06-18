@@ -50,35 +50,16 @@ class KvMasterServiceImpl final : public kvStore::KvNodeService::Service {
                     kvStore::HelloReply* reply) override {
       std::string suffix("master");
       reply->set_message(request->name() + suffix);
-
-      KvStoreMasterNode masternode(grpc::CreateChannel(
-          "localhost:50052", grpc::InsecureChannelCredentials()));
       std::string user("Hello ");
-      std::string datanode_reply = masternode.SayHello(user);
-      std::cout << "Greeter received: " << datanode_reply << std::endl;
 
       return grpc::Status::OK;
     }
 
-    grpc::Status RequestPut(grpc::ServerContext *context,
+    grpc::Status Request(grpc::ServerContext *context,
                       const kvStore::KeyValuePair *keyValue,
                       kvStore::RequestResult *result) override {
-      std::cout << "Received put request" << std::endl;
+      std::cout << "Received request" << std::endl;
       return RedirectToDatanode(keyValue->key(), result);
-    }
-
-    grpc::Status RequestRead(grpc::ServerContext *context,
-                       const kvStore::KeyString *keyString,
-                       kvStore::RequestResult *result) override {
-      std::cout << "Received read request" << std::endl;
-      return RedirectToDatanode(keyString->key(), result);
-    }
-
-    grpc::Status RequestDelete(grpc::ServerContext *context,
-                         const kvStore::KeyString *keyString,
-                         kvStore::RequestResult *result) override {
-      std::cout << "Received delete request" << std::endl;
-      return RedirectToDatanode(keyString->key(), result);
     }
 
   private:
