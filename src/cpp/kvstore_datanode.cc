@@ -13,6 +13,7 @@
 
 #include "kvstore.grpc.pb.h"
 
+// globals
 zhandle_t* zkhandle;
 int my_data_id;
 std::string my_znode_path;
@@ -20,9 +21,38 @@ std::string my_server_addr;
 
 std::vector<kvStore::SyncContent> log_ents;
 std::map<std::string, std::string> dict;
+std::vector<std::string> backups;
 
-void AppendLog(const kvStore::RequestContent *req);
+// forward declarations
+int AppendLog(const kvStore::RequestContent *req);
+int AppendLog(const kvStore::SyncContent *sync);
 grpc::Status ApplyLog(kvStore::RequestResult *result);
+
+// classes
+class SyncRequester {
+public:
+  SyncRequester(std::shared_ptr<grpc::Channel> channel)
+      : stub_(kvStore::KvNodeService::NewStub(channel)) {}
+
+  int DoSync(const kvStore::SyncContent& request) {
+    kvStore::SyncResult reply;
+    grpc::ClientContext context;
+
+    grpc::Status status = stub_->Sync(&context, request, &reply);
+
+    if (status.ok()) {
+      return reply.err();
+    } else {
+      std::cout << status.error_code() << ": " << status.error_message()
+                << std::endl
+                << "RPC failed" << std::endl;
+      return kvdefs::SYNC_FAIL;
+    }
+}
+
+private:
+  std::unique_ptr<kvStore::KvNodeService::Stub> stub_;
+};
 
 class KvDataServiceImpl final : public kvStore::KvNodeService::Service {
   grpc::Status SayHello(grpc::ServerContext *context,
@@ -34,28 +64,80 @@ class KvDataServiceImpl final : public kvStore::KvNodeService::Service {
   }
 
   grpc::Status Request(grpc::ServerContext *context,
-                       const kvStore::RequestContent *keyValue,
+                       const kvStore::RequestContent *req,
                        kvStore::RequestResult *result) override {
-    std::cout << "received request: " << keyValue->op() << std::endl;
-    
-    AppendLog(keyValue);
-    grpc::Status ret = ApplyLog(result);
+    std::cout << "received request: " << req->op() << std::endl;
+
+    grpc::Status ret = grpc::Status::OK;
+
+    // Immediately return result if it is read request (or maybe flush log before);
+    // Update request (put and del) should be entered into log and then do 2pc consensus.
+    if(req->op() == kvdefs::READ) {
+      if (dict.count(req->key())) {
+        result->set_err(kvdefs::OK);
+        result->set_value(dict[req->key()]);
+      } else {
+        result->set_err(kvdefs::NOTFOUND);
+      }
+    } else {
+      AppendLog(req);
+      // 2pc:
+      // send sync reqeust to backups,
+      // apply log on receiving success responses of the majority
+      int sum = 0;
+      kvStore::SyncContent &ent = log_ents.back();
+      while(sum <= backups.size()/2){
+        sum = 0;
+        ent.set_index(ent.index() + 1);
+        for(auto& addr: backups) {
+          std::cout << "syncing " << addr << std::endl;
+          SyncRequester client(grpc::CreateChannel(
+              addr, grpc::InsecureChannelCredentials()));
+          if(client.DoSync(ent) == kvdefs::SYNC_SUCC)
+            ++ sum;
+        }
+      }
+      ret = ApplyLog(result);
+    }
+
     return ret;
   }
 
   grpc::Status Sync(grpc::ServerContext *context,
                     const kvStore::SyncContent *ent,
                     kvStore::SyncResult *result) override {
+    std::cout << "received sync request" << std::endl;
+    int sync_ret = AppendLog(ent);
+    result->set_err(sync_ret);
+    if(sync_ret == kvdefs::SYNC_SUCC) {
+      kvStore::RequestResult result;
+      return ApplyLog(&result);
+    }
     return grpc::Status::OK;
   }
 };
 
-void AppendLog(const kvStore::RequestContent *req) {
+int AppendLog(const kvStore::RequestContent *req) {
   kvStore::SyncContent ent;
-  ent.set_index(log_ents.size());
+  if(log_ents.empty()) {
+    ent.set_index(0);
+  } else {
+    ent.set_index(log_ents.back().index() + 1);
+  }
   kvStore::RequestContent *req_clone = new kvStore::RequestContent(*req);
   ent.set_allocated_req(req_clone);
   log_ents.push_back(ent);
+
+  return kvdefs::SYNC_SUCC;
+}
+
+int AppendLog(const kvStore::SyncContent *sync) {
+  if(log_ents.empty() || log_ents.back().index() < sync->index()) {
+    log_ents.push_back(*sync);
+    return kvdefs::SYNC_SUCC;
+  }
+
+  return kvdefs::SYNC_FAIL;
 }
 
 grpc::Status ApplyLog(kvStore::RequestResult *result) {
@@ -69,15 +151,6 @@ grpc::Status ApplyLog(kvStore::RequestResult *result) {
     result->set_value(req->key() + ":" + req->value());
     break;
 
-  case kvdefs::READ:
-    if (dict.count(req->key())) {
-      result->set_err(kvdefs::OK);
-      result->set_value(dict[req->key()]);
-    } else {
-      result->set_err(kvdefs::NOTFOUND);
-    }
-    break;
-
   case kvdefs::DELETE:
     if (dict.count(req->key())) {
       dict.erase(dict.find(req->key()));
@@ -87,6 +160,7 @@ grpc::Status ApplyLog(kvStore::RequestResult *result) {
     }
     break;
 
+  case kvdefs::READ:
   default:
     std::cout << "failed here " << __LINE__ << std::endl;
     return grpc::Status::CANCELLED;
@@ -121,9 +195,43 @@ void cleanup() {
 }
 
 // zk callbacks
+void zktest_string_completion(int rc, const String_vector* strings, const void *data) {
+
+}
+
 void zkwatcher_callback(zhandle_t* zh, int type, int state,
         const char* path, void* watcherCtx) {
+  
+  std::cout << "something happeded" << std::endl;
+  if(type == ZOO_CHILD_EVENT) {
+    std::cout << "child event: " << path << std::endl;
+    String_vector children;
+    std::string my_znode("data");
+    my_znode += std::to_string(my_data_id);
 
+    if (zoo_get_children(zh, "/master", 0, &children) == ZOK) {
+      std::vector<std::string> new_backups;
+      for (int i = 0; i < children.count; ++i) {
+        std::string child_path("/master/"),
+                    child_name(children.data[i]),
+                    child_node(kvdefs::extract_data_node(children.data[i]));
+        child_path += child_name;
+
+        char buf[50] = {0};
+        int buf_len;
+
+        zoo_get(zh, child_path.c_str(), 0, buf, &buf_len, NULL);
+        if(child_node== my_znode && std::string(buf) != my_server_addr) {
+          new_backups.emplace_back(buf);
+          std::cout << "added backup " << child_name << " with addr: " << buf << std::endl;
+        }
+      }
+      backups.swap(new_backups);
+    }
+  }
+
+  // re-register watcher function
+  zoo_awget_children(zh, "/master", zkwatcher_callback, nullptr, zktest_string_completion, nullptr);
 }
 
 // handle ctrl-c
@@ -154,6 +262,7 @@ int main(int argc, char** argv) {
       return 0;
     }
   } else {
+    std::cout << "Argument --target must be set !" << std::endl;
     exit(EXIT_FAILURE);
   }
 
