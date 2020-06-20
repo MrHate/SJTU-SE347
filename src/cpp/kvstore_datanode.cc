@@ -34,7 +34,7 @@ public:
   SyncRequester(std::shared_ptr<grpc::Channel> channel)
       : stub_(kvStore::KvNodeService::NewStub(channel)) {}
 
-  int DoSync(const kvStore::SyncContent& request) {
+  int DoSync(const kvStore::SyncContent &request) {
     kvStore::SyncResult reply;
     grpc::ClientContext context;
 
@@ -48,7 +48,7 @@ public:
                 << "RPC failed" << std::endl;
       return kvdefs::SYNC_FAIL;
     }
-}
+  }
 
 private:
   std::unique_ptr<kvStore::KvNodeService::Stub> stub_;
@@ -70,9 +70,10 @@ class KvDataServiceImpl final : public kvStore::KvNodeService::Service {
 
     grpc::Status ret = grpc::Status::OK;
 
-    // Immediately return result if it is read request (or maybe flush log before);
-    // Update request (put and del) should be entered into log and then do 2pc consensus.
-    if(req->op() == kvdefs::READ) {
+    // Immediately return result if it is read request (or maybe flush log
+    // before); Update request (put and del) should be entered into log and then
+    // do 2pc consensus.
+    if (req->op() == kvdefs::READ) {
       if (dict.count(req->key())) {
         result->set_err(kvdefs::OK);
         result->set_value(dict[req->key()]);
@@ -86,15 +87,15 @@ class KvDataServiceImpl final : public kvStore::KvNodeService::Service {
       // apply log on receiving success responses of the majority
       int sum = 0;
       kvStore::SyncContent &ent = log_ents.back();
-      while(sum <= backups.size()/2){
+      while (sum <= backups.size() / 2) {
         sum = 0;
         ent.set_index(ent.index() + 1);
-        for(auto& addr: backups) {
+        for (auto &addr : backups) {
           std::cout << "syncing " << addr << std::endl;
-          SyncRequester client(grpc::CreateChannel(
-              addr, grpc::InsecureChannelCredentials()));
-          if(client.DoSync(ent) == kvdefs::SYNC_SUCC)
-            ++ sum;
+          SyncRequester client(
+              grpc::CreateChannel(addr, grpc::InsecureChannelCredentials()));
+          if (client.DoSync(ent) == kvdefs::SYNC_SUCC)
+            ++sum;
         }
       }
       ret = ApplyLog(result);
@@ -109,7 +110,7 @@ class KvDataServiceImpl final : public kvStore::KvNodeService::Service {
     std::cout << "received sync request" << std::endl;
     int sync_ret = AppendLog(ent);
     result->set_err(sync_ret);
-    if(sync_ret == kvdefs::SYNC_SUCC) {
+    if (sync_ret == kvdefs::SYNC_SUCC) {
       kvStore::RequestResult result;
       return ApplyLog(&result);
     }
@@ -119,7 +120,7 @@ class KvDataServiceImpl final : public kvStore::KvNodeService::Service {
 
 int AppendLog(const kvStore::RequestContent *req) {
   kvStore::SyncContent ent;
-  if(log_ents.empty()) {
+  if (log_ents.empty()) {
     ent.set_index(0);
   } else {
     ent.set_index(log_ents.back().index() + 1);
@@ -132,7 +133,7 @@ int AppendLog(const kvStore::RequestContent *req) {
 }
 
 int AppendLog(const kvStore::SyncContent *sync) {
-  if(log_ents.empty() || log_ents.back().index() < sync->index()) {
+  if (log_ents.empty() || log_ents.back().index() < sync->index()) {
     log_ents.push_back(*sync);
     return kvdefs::SYNC_SUCC;
   }
@@ -195,15 +196,14 @@ void cleanup() {
 }
 
 // zk callbacks
-void zktest_string_completion(int rc, const String_vector* strings, const void *data) {
-
-}
+void zktest_string_completion(int rc, const String_vector *strings,
+                              const void *data) {}
 
 void zkwatcher_callback(zhandle_t* zh, int type, int state,
         const char* path, void* watcherCtx) {
-  
+
   std::cout << "something happeded" << std::endl;
-  if(type == ZOO_CHILD_EVENT) {
+  if (type == ZOO_CHILD_EVENT) {
     std::cout << "child event: " << path << std::endl;
     String_vector children;
     std::string my_znode("data");
@@ -212,18 +212,18 @@ void zkwatcher_callback(zhandle_t* zh, int type, int state,
     if (zoo_get_children(zh, "/master", 0, &children) == ZOK) {
       std::vector<std::string> new_backups;
       for (int i = 0; i < children.count; ++i) {
-        std::string child_path("/master/"),
-                    child_name(children.data[i]),
-                    child_node(kvdefs::extract_data_node(children.data[i]));
+        std::string child_path("/master/"), child_name(children.data[i]),
+            child_node(kvdefs::extract_data_node(children.data[i]));
         child_path += child_name;
 
         char buf[50] = {0};
         int buf_len;
 
         zoo_get(zh, child_path.c_str(), 0, buf, &buf_len, NULL);
-        if(child_node== my_znode && std::string(buf) != my_server_addr) {
+        if (child_node == my_znode && std::string(buf) != my_server_addr) {
           new_backups.emplace_back(buf);
-          std::cout << "added backup " << child_name << " with addr: " << buf << std::endl;
+          std::cout << "added backup " << child_name << " with addr: " << buf
+                    << std::endl;
         }
       }
       backups.swap(new_backups);
@@ -231,7 +231,8 @@ void zkwatcher_callback(zhandle_t* zh, int type, int state,
   }
 
   // re-register watcher function
-  zoo_awget_children(zh, "/master", zkwatcher_callback, nullptr, zktest_string_completion, nullptr);
+  zoo_awget_children(zh, "/master", zkwatcher_callback, nullptr,
+                     zktest_string_completion, nullptr);
 }
 
 // handle ctrl-c
