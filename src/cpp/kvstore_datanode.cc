@@ -80,6 +80,12 @@ class KvDataServiceImpl final : public kvStore::KvNodeService::Service {
       } else {
         result->set_err(kvdefs::NOTFOUND);
       }
+    } else if (req->op() == kvdefs::LOGVERSION) {
+      if (log_ents.empty())
+        result->set_value("0");
+      else
+        result->set_value(std::to_string(log_ents.back().index()));
+      result->set_err(kvdefs::OK);
     } else {
       AppendLog(req);
       // 2pc:
@@ -99,6 +105,11 @@ class KvDataServiceImpl final : public kvStore::KvNodeService::Service {
         }
       }
       ret = ApplyLog(result);
+
+      // append empty ent to be the primary node
+      kvStore::SyncContent empty_ent;
+      empty_ent.set_index(log_ents.back().index() + 1);
+      log_ents.push_back(empty_ent);
     }
 
     return ret;

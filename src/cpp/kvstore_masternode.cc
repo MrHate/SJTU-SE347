@@ -14,10 +14,33 @@
 
 using strmap_t = std::map<std::string, std::string>;
 
-namespace {
-  zhandle_t* zkhandle;
-  strmap_t datanodes_addr;
-}
+zhandle_t* zkhandle;
+strmap_t datanodes_addr;
+
+class MasterRequester {
+public:
+  MasterRequester(std::shared_ptr<grpc::Channel> channel)
+      : stub_(kvStore::KvNodeService::NewStub(channel)) {}
+
+  int RequestLogVersion() {
+    kvStore::RequestContent request;
+    request.set_op(kvdefs::LOGVERSION);
+    
+    kvStore::RequestResult reply;
+    grpc::ClientContext context;
+
+    grpc::Status status = stub_->Request(&context, request, &reply);
+
+    if (status.ok() && reply.err() == kvdefs::OK) {
+      return std::stoi(reply.value());
+    } else {
+      return -1;
+    }
+  }
+
+private:
+  std::unique_ptr<kvStore::KvNodeService::Stub> stub_;
+};
 
 class KvMasterServiceImpl final : public kvStore::KvNodeService::Service {
     grpc::Status SayHello(grpc::ServerContext* context, const kvStore::HelloRequest* request, 
@@ -54,7 +77,7 @@ class KvMasterServiceImpl final : public kvStore::KvNodeService::Service {
     }
 };
 
-static void RunServer(const std::string& server_addr) {
+void RunServer(const std::string& server_addr) {
     KvMasterServiceImpl service;
 
     grpc::EnableDefaultHealthCheckService(true);
@@ -93,6 +116,7 @@ void zkwatcher_callback(zhandle_t* zh, int type, int state,
 
     if (zoo_get_children(zh, "/master", 0, &children) == ZOK) {
       strmap_t new_datanodes_addr;
+      std::map<std::string, int> log_versions;
       for (int i = 0; i < children.count; ++i) {
         std::string child_path("/master/"),
                     child_name(children.data[i]),
@@ -103,9 +127,23 @@ void zkwatcher_callback(zhandle_t* zh, int type, int state,
         int buf_len;
 
         zoo_get(zh, child_path.c_str(), 0, buf, &buf_len, NULL);
-        if(new_datanodes_addr.count(child_node) == 0 || child_node == child_name) {
+        if(new_datanodes_addr.count(child_node) == 0) {
+          MasterRequester client(grpc::CreateChannel(
+              buf, grpc::InsecureChannelCredentials()));
+          log_versions[child_node] = client.RequestLogVersion();
           new_datanodes_addr[child_node] = buf;
           std::cout << "added " << child_name << " as " << child_node << " to " << buf << std::endl;
+        } else {
+          MasterRequester client(grpc::CreateChannel(
+              buf, grpc::InsecureChannelCredentials()));
+          int v = client.RequestLogVersion();
+          assert(v >= 0);
+          assert(log_versions.count(child_node));
+          if(log_versions[child_node] < v) {
+            new_datanodes_addr[child_node] = buf;
+            log_versions[child_node] = v;
+            std::cout << "set " << child_name << " as " << child_node << " to " << buf << std::endl;
+          }
         }
       }
       datanodes_addr.swap(new_datanodes_addr);
