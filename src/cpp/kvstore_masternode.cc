@@ -3,6 +3,7 @@
 #include <string>
 #include <map>
 #include <functional>
+#include <unistd.h>
 
 #include "defines.h"
 
@@ -14,8 +15,9 @@
 
 using strmap_t = std::map<std::string, std::string>;
 
-zhandle_t* zkhandle;
+zhandle_t* zkhandle = nullptr;
 strmap_t datanodes_addr;
+std::string server_addr = "";
 
 class MasterRequester {
 public:
@@ -25,7 +27,7 @@ public:
   int RequestLogVersion() {
     kvStore::RequestContent request;
     request.set_op(kvdefs::LOGVERSION);
-    
+
     kvStore::RequestResult reply;
     grpc::ClientContext context;
 
@@ -164,7 +166,22 @@ void sig_handler(int sig) {
 
 // main
 int main(int argc, char** argv) {
-  std::string server_addr = "0.0.0.0:50051";
+  // parse args
+  {
+    int o = -1;
+    const char *optstring = "t:";
+    while ((o = getopt(argc, argv, optstring)) != -1) {
+      switch (o) {
+        case 't':
+          server_addr = optarg;
+          break;
+      }
+    }
+    if (server_addr.empty()) {
+      std::cerr << "Must set -t <addr>" << std::endl;
+      exit(EXIT_FAILURE);
+    }
+  }
 
   zkhandle = zookeeper_init("0.0.0.0:2181",
             zkwatcher_callback, 10000, 0, nullptr, 0);

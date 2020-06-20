@@ -4,6 +4,7 @@
 #include <map>
 #include <vector>
 #include <sstream>
+#include <unistd.h>
 
 #include "defines.h"
 
@@ -14,10 +15,10 @@
 #include "kvstore.grpc.pb.h"
 
 // globals
-zhandle_t* zkhandle;
-int my_data_id;
-std::string my_znode_path;
-std::string my_server_addr;
+zhandle_t* zkhandle = nullptr;
+int my_data_id = -1;
+std::string my_znode_path = "";
+std::string my_server_addr = "";
 
 std::vector<kvStore::SyncContent> log_ents;
 std::map<std::string, std::string> dict;
@@ -91,9 +92,9 @@ class KvDataServiceImpl final : public kvStore::KvNodeService::Service {
       // 2pc:
       // send sync reqeust to backups,
       // apply log on receiving success responses of the majority
-      int sum = 0;
+      int sum = 0, retrys = 0;
       kvStore::SyncContent &ent = log_ents.back();
-      while (sum <= backups.size() / 2) {
+      while (retrys < 3 && backups.size() && sum <= backups.size() / 2) {
         sum = 0;
         ent.set_index(ent.index() + 1);
         for (auto &addr : backups) {
@@ -103,6 +104,7 @@ class KvDataServiceImpl final : public kvStore::KvNodeService::Service {
           if (client.DoSync(ent) == kvdefs::SYNC_SUCC)
             ++sum;
         }
+        ++ retrys;
       }
       ret = ApplyLog(result);
 
@@ -255,34 +257,32 @@ void sig_handler(int sig) {
 }
 
 int main(int argc, char** argv) {
-  // check "--target" argument
-  std::string arg_str("--target");
-  if (argc > 1) {
-    std::string arg_val = argv[1];
-    size_t start_pos = arg_val.find(arg_str);
-    if (start_pos != std::string::npos) {
-      start_pos += arg_str.size();
-      if (arg_val[start_pos] == '=') {
-        my_server_addr = arg_val.substr(start_pos + 1);
-      } else {
-        std::cout << "The only correct argument syntax is --target="
-                  << std::endl;
-        return 0;
+  // parse args
+  {
+    int o = -1;
+    const char *optstring = "t:i:";
+    while ((o = getopt(argc, argv, optstring)) != -1) {
+      switch (o) {
+        case 't':
+          my_server_addr = optarg;
+          break;
+        case 'i':
+          my_data_id = atoi(optarg);
+          break;
       }
-    } else {
-      std::cout << "The only acceptable argument is --target=" << std::endl;
-      return 0;
     }
-  } else {
-    std::cout << "Argument --target must be set !" << std::endl;
-    exit(EXIT_FAILURE);
+    if (my_data_id < 0 || my_server_addr.empty()) {
+      std::cerr << "Must set -t <addr> -i <id>" << std::endl;
+      exit(EXIT_FAILURE);
+    }
   }
 
-  my_data_id = 1;
-
-  std::stringstream strm;
-  strm << "/master/data" << my_data_id;
-  my_znode_path = strm.str();
+  // generate znode path
+  {
+    std::stringstream strm;
+    strm << "/master/data" << my_data_id;
+    my_znode_path = strm.str();
+  }
   
   zkhandle = zookeeper_init("0.0.0.0:2181",
             zkwatcher_callback, 10000, 0, nullptr, 0);
