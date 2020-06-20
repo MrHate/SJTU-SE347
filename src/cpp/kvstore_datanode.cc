@@ -87,6 +87,16 @@ class KvDataServiceImpl final : public kvStore::KvNodeService::Service {
       else
         result->set_value(std::to_string(log_ents.back().index()));
       result->set_err(kvdefs::OK);
+    } else if (req->op() == kvdefs::PRIMARY) {
+      // completely sync with all backups
+      for (const std::string& addr : backups) {
+        std::cout << "doing complete sync to " << addr << std::endl;
+        SyncRequester client(
+            grpc::CreateChannel(addr, grpc::InsecureChannelCredentials()));
+        for (auto& ent : log_ents) {
+          client.DoSync(ent);
+        }
+      }
     } else {
       AppendLog(req);
       // 2pc:
@@ -120,7 +130,7 @@ class KvDataServiceImpl final : public kvStore::KvNodeService::Service {
   grpc::Status Sync(grpc::ServerContext *context,
                     const kvStore::SyncContent *ent,
                     kvStore::SyncResult *result) override {
-    std::cout << "received sync request" << std::endl;
+    // std::cout << "received sync request" << std::endl;
     int sync_ret = AppendLog(ent);
     result->set_err(sync_ret);
     if (sync_ret == kvdefs::SYNC_SUCC) {
@@ -157,6 +167,11 @@ int AppendLog(const kvStore::SyncContent *sync) {
 grpc::Status ApplyLog(kvStore::RequestResult *result) {
   assert(log_ents.size());
 
+  // check if being empty log entry
+  if(!log_ents.back().has_req()) {
+    return grpc::Status::OK;
+  }
+
   const kvStore::RequestContent *req = &(log_ents.back().req());
   switch (req->op()) {
   case kvdefs::PUT:
@@ -174,7 +189,6 @@ grpc::Status ApplyLog(kvStore::RequestResult *result) {
     }
     break;
 
-  case kvdefs::READ:
   default:
     std::cout << "failed here " << __LINE__ << std::endl;
     return grpc::Status::CANCELLED;

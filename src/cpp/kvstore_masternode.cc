@@ -40,6 +40,16 @@ public:
     }
   }
 
+  void RequestPrimarySync() {
+    kvStore::RequestContent request;
+    request.set_op(kvdefs::PRIMARY);
+
+    kvStore::RequestResult reply;
+    grpc::ClientContext context;
+
+    grpc::Status status = stub_->Request(&context, request, &reply);
+  }
+
 private:
   std::unique_ptr<kvStore::KvNodeService::Stub> stub_;
 };
@@ -149,6 +159,12 @@ void zkwatcher_callback(zhandle_t* zh, int type, int state,
         }
       }
       datanodes_addr.swap(new_datanodes_addr);
+      // sending primarys complete sync request
+      for (const auto& e : datanodes_addr) {
+        MasterRequester client(grpc::CreateChannel(
+            e.second, grpc::InsecureChannelCredentials()));
+        client.RequestPrimarySync();
+      }
     }
   }
 
