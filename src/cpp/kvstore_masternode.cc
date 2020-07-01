@@ -2,6 +2,7 @@
 #include <memory>
 #include <string>
 #include <map>
+#include <vector>
 #include <functional>
 #include <unistd.h>
 
@@ -43,6 +44,17 @@ public:
   void RequestPrimarySync() {
     kvStore::RequestContent request;
     request.set_op(kvdefs::PRIMARY);
+
+    kvStore::RequestResult reply;
+    grpc::ClientContext context;
+
+    grpc::Status status = stub_->Request(&context, request, &reply);
+  }
+
+  void RequestLogClone(const std::string& target) {
+    kvStore::RequestContent request;
+    request.set_op(kvdefs::CLONE);
+    request.set_value(target);
 
     kvStore::RequestResult reply;
     grpc::ClientContext context;
@@ -127,8 +139,10 @@ void zkwatcher_callback(zhandle_t* zh, int type, int state,
     String_vector children;
 
     if (zoo_get_children(zh, "/master", 0, &children) == ZOK) {
-      strmap_t new_datanodes_addr;
-      std::map<std::string, int> log_versions;
+      strmap_t new_datanodes_addr;  // updated datanode router map
+      std::vector<std::string> new_datanode_group;  // record the new datanode added in this turn
+      std::map<std::string, int> log_versions;  // check the latest log version to find primaries
+
       for (int i = 0; i < children.count; ++i) {
         std::string child_path("/master/"),
                     child_name(children.data[i]),
@@ -139,6 +153,13 @@ void zkwatcher_callback(zhandle_t* zh, int type, int state,
         int buf_len;
 
         zoo_get(zh, child_path.c_str(), 0, buf, &buf_len, NULL);
+
+        // check if being new added datanode group
+        if(datanodes_addr.count(child_node) == 0) {
+          new_datanode_group.push_back(child_node);
+        }
+
+        // added router entry into new router map
         if(new_datanodes_addr.count(child_node) == 0) {
           MasterRequester client(grpc::CreateChannel(
               buf, grpc::InsecureChannelCredentials()));
@@ -158,7 +179,21 @@ void zkwatcher_callback(zhandle_t* zh, int type, int state,
           }
         }
       }
+
+      // check new datanodes and do clone sync if any
+      // use cluster-level global sequence to ensure log version consensus
+      // sync all the logs from existing datanodes to the new ones
+      for (const auto& e : datanodes_addr) {
+        MasterRequester client(grpc::CreateChannel(
+            e.second, grpc::InsecureChannelCredentials()));
+        for (const std::string& new_datanode : new_datanode_group) {
+          client.RequestLogClone(new_datanodes_addr[new_datanode]);
+        }
+      }
+
+      // update datanode router
       datanodes_addr.swap(new_datanodes_addr);
+
       // sending primarys complete sync request
       for (const auto& e : datanodes_addr) {
         MasterRequester client(grpc::CreateChannel(

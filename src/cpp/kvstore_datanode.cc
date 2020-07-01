@@ -102,6 +102,17 @@ class KvDataServiceImpl final : public kvStore::KvNodeService::Service {
           client.DoSync(ent);
         }
       }
+    } else if (req->op() == kvdefs::CLONE) {
+      std::string addr = req->value();
+      if(addr.empty()) {
+        std::cerr << "wrong target addr" << std::endl;
+        return grpc::Status::CANCELLED;
+      }
+      std::cout << "doing complete cloning to " << addr << std::endl;
+      SyncRequester client(
+          grpc::CreateChannel(addr, grpc::InsecureChannelCredentials()));
+      for (auto& ent : log_ents)
+        client.DoSync(ent);
     } else {
       AppendLog(req);
       // 2pc:
