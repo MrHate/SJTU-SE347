@@ -308,6 +308,31 @@ void zkwatcher_callback(zhandle_t* zh, int type, int state,
 // handle ctrl-c
 void sig_handler(int sig) {
   if(sig == SIGINT) {
+    // if no backup, clone logs to other datanodes
+    if (backups.empty()) {
+      String_vector children;
+      if (zoo_get_children(zkhandle, "/master", 0, &children) == ZOK) {
+        for (int i = 0; i < children.count; ++i) {
+          std::string child_path("/master/"), child_name(children.data[i]);
+          child_path += child_name;
+
+          char buf[50] = {0};
+          int buf_len;
+
+          zoo_get(zkhandle, child_path.c_str(), 0, buf, &buf_len, NULL);
+          const std::string target_addr = std::string(buf);
+          if (target_addr != my_server_addr) {
+            std::cout << "doing complete cloning to " << target_addr
+                      << std::endl;
+            SyncRequester client(grpc::CreateChannel(
+                target_addr, grpc::InsecureChannelCredentials()));
+            for (auto &ent : log_ents)
+              client.DoSync(ent);
+          }
+        }
+      }
+    }
+
     cleanup();
     exit(EXIT_SUCCESS);
   }

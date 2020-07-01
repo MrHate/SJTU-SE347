@@ -163,7 +163,7 @@ int main(int argc, char** argv) {
             << "=====================================" << std::endl;
   char op;
   std::string key, value;
-  while (!std::cin.eof()) {
+  while (1) {
     std::cin >> op;
 
     switch (op) {
