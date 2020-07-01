@@ -110,7 +110,9 @@ class KvDataServiceImpl final : public kvStore::KvNodeService::Service {
         std::cerr << "wrong target addr" << std::endl;
         return grpc::Status::CANCELLED;
       }
-      std::cout << "doing complete cloning to " << addr << std::endl;
+      std::cout << __LINE__ 
+                << " doing complete cloning to " << addr
+                << std::endl;
       SyncRequester client(
           grpc::CreateChannel(addr, grpc::InsecureChannelCredentials()));
       for (auto& ent : log_ents)
@@ -290,9 +292,10 @@ void zkwatcher_callback(zhandle_t* zh, int type, int state,
         int buf_len;
 
         zoo_get(zh, child_path.c_str(), 0, buf, &buf_len, NULL);
-        if (child_node == my_znode && std::string(buf) != my_server_addr) {
+        const std::string new_node_addr(buf);
+        if (child_node == my_znode && new_node_addr != my_server_addr && new_node_addr.size()) {
           new_backups.emplace_back(buf);
-          std::cout << "added backup " << child_name << " with addr: " << buf
+          std::cout << "added backup " << child_name << " with addr: " << buf << " my_znode: " << my_znode
                     << std::endl;
         }
       }
@@ -322,7 +325,8 @@ void sig_handler(int sig) {
           zoo_get(zkhandle, child_path.c_str(), 0, buf, &buf_len, NULL);
           const std::string target_addr = std::string(buf);
           if (target_addr != my_server_addr) {
-            std::cout << "doing complete cloning to " << target_addr
+            std::cout << __LINE__ 
+                      << " doing complete cloning to " << target_addr
                       << std::endl;
             SyncRequester client(grpc::CreateChannel(
                 target_addr, grpc::InsecureChannelCredentials()));
@@ -339,10 +343,11 @@ void sig_handler(int sig) {
 }
 
 int main(int argc, char** argv) {
+  std::string zk_local_addr = "0.0.0.0:";
   // parse args
   {
     int o = -1;
-    const char *optstring = "t:i:";
+    const char *optstring = "t:i:z:";
     while ((o = getopt(argc, argv, optstring)) != -1) {
       switch (o) {
         case 't':
@@ -351,10 +356,13 @@ int main(int argc, char** argv) {
         case 'i':
           my_data_id = atoi(optarg);
           break;
+        case 'z':
+          zk_local_addr += optarg;
+          break;
       }
     }
-    if (my_data_id < 0 || my_server_addr.empty()) {
-      std::cerr << "Must set -t <addr> -i <id>" << std::endl;
+    if (my_data_id < 0 || my_server_addr.empty() || zk_local_addr.size() < 8) {
+      std::cerr << "Must set -t <addr> -i <id> -z <port>" << std::endl;
       exit(EXIT_FAILURE);
     }
   }
@@ -366,7 +374,7 @@ int main(int argc, char** argv) {
     my_znode_path = strm.str();
   }
   
-  zkhandle = zookeeper_init("0.0.0.0:2181",
+  zkhandle = zookeeper_init(zk_local_addr.c_str(),
             zkwatcher_callback, 10000, 0, nullptr, 0);
   if(!zkhandle) {
     std::cerr << "Failed connecting to zk server." << std::endl;

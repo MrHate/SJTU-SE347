@@ -37,6 +37,7 @@ public:
     if (status.ok() && reply.err() == kvdefs::OK) {
       return std::stoi(reply.value());
     } else {
+      std::cerr << "request version failed" << std::endl;
       return -1;
     }
   }
@@ -217,24 +218,28 @@ void sig_handler(int sig) {
 
 // main
 int main(int argc, char** argv) {
+  std::string zk_local_addr = "0.0.0.0:";
   // parse args
   {
     int o = -1;
-    const char *optstring = "t:";
+    const char *optstring = "t:z:";
     while ((o = getopt(argc, argv, optstring)) != -1) {
       switch (o) {
         case 't':
           server_addr = optarg;
           break;
+        case 'z':
+          zk_local_addr += optarg;
+          break;
       }
     }
-    if (server_addr.empty()) {
-      std::cerr << "Must set -t <addr>" << std::endl;
+    if (server_addr.empty() || zk_local_addr.size() < 8) {
+      std::cerr << "Must set -t <addr> -z <port>" << std::endl;
       exit(EXIT_FAILURE);
     }
   }
 
-  zkhandle = zookeeper_init("0.0.0.0:2181",
+  zkhandle = zookeeper_init(zk_local_addr.c_str(),
             zkwatcher_callback, 10000, 0, nullptr, 0);
   if(!zkhandle) {
     std::cerr << "Failed connecting to zk server." << std::endl;
