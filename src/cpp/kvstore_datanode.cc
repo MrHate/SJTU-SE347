@@ -5,6 +5,7 @@
 #include <vector>
 #include <sstream>
 #include <unistd.h>
+#include <mutex>
 
 #include "defines.h"
 
@@ -23,6 +24,8 @@ std::string my_server_addr = "";
 std::vector<kvStore::SyncContent> log_ents;
 std::map<std::string, std::string> dict;
 std::vector<std::string> backups;
+
+std::mutex g_log_dict_mutex;
 
 // forward declarations
 int AppendLog(const kvStore::RequestContent *req);
@@ -68,6 +71,8 @@ class KvDataServiceImpl final : public kvStore::KvNodeService::Service {
                        const kvStore::RequestContent *req,
                        kvStore::RequestResult *result) override {
     std::cout << "received request: " << req->op() << std::endl;
+
+    std::lock_guard<std::mutex> guard(g_log_dict_mutex);
 
     grpc::Status ret = grpc::Status::OK;
 
@@ -130,6 +135,7 @@ class KvDataServiceImpl final : public kvStore::KvNodeService::Service {
   grpc::Status Sync(grpc::ServerContext *context,
                     const kvStore::SyncContent *ent,
                     kvStore::SyncResult *result) override {
+    std::lock_guard<std::mutex> guard(g_log_dict_mutex);
     // std::cout << "received sync request" << std::endl;
     int sync_ret = AppendLog(ent);
     result->set_err(sync_ret);
