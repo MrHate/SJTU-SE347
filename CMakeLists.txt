@@ -132,7 +132,10 @@ set(my_unities_srcs "./src/cpp/unities.cc")
 
 # Targets greeter_[async_](client|server)
 foreach(_target
-  kvstore_client kvstore_masternode kvstore_datanode)
+  kvstore_client
+  kvstore_masternode
+  kvstore_datanode
+  kvstore_tester_client)
   add_executable(${_target} "./src/cpp/${_target}.cc"
     ${kv_proto_srcs}
     ${kv_grpc_srcs}
