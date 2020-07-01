@@ -124,7 +124,7 @@ class KvDataServiceImpl final : public kvStore::KvNodeService::Service {
       kvStore::SyncContent &ent = log_ents.back();
       while (retrys < 3 && backups.size() && sum <= backups.size() / 2) {
         sum = 0;
-        ent.set_index(ent.index() + 1);
+        ent.set_index(generate_global_seq());
         for (auto &addr : backups) {
           std::cout << "syncing " << addr << std::endl;
           SyncRequester client(
@@ -138,7 +138,7 @@ class KvDataServiceImpl final : public kvStore::KvNodeService::Service {
 
       // append empty ent to be the primary node
       kvStore::SyncContent empty_ent;
-      empty_ent.set_index(log_ents.back().index() + 1);
+      empty_ent.set_index(generate_global_seq());
       log_ents.push_back(empty_ent);
     }
 
@@ -162,11 +162,12 @@ class KvDataServiceImpl final : public kvStore::KvNodeService::Service {
 
 int AppendLog(const kvStore::RequestContent *req) {
   kvStore::SyncContent ent;
-  if (log_ents.empty()) {
-    ent.set_index(0);
-  } else {
-    ent.set_index(log_ents.back().index() + 1);
-  }
+  // if (log_ents.empty()) {
+  //   ent.set_index(0);
+  // } else {
+  //   ent.set_index(log_ents.back().index() + 1);
+  // }
+  ent.set_index(generate_global_seq());
   kvStore::RequestContent *req_clone = new kvStore::RequestContent(*req);
   ent.set_allocated_req(req_clone);
   log_ents.push_back(ent);
