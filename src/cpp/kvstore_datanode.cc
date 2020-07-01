@@ -31,6 +31,7 @@ std::mutex g_log_dict_mutex;
 int AppendLog(const kvStore::RequestContent *req);
 int AppendLog(const kvStore::SyncContent *sync);
 grpc::Status ApplyLog(kvStore::RequestResult *result);
+std::size_t generate_global_seq();
 
 // classes
 class SyncRequester {
@@ -80,6 +81,7 @@ class KvDataServiceImpl final : public kvStore::KvNodeService::Service {
     // before); Update request (put and del) should be entered into log and then
     // do 2pc consensus.
     if (req->op() == kvdefs::READ) {
+      // std::cout << "global seq: " << generate_global_seq() << std::endl;
       if (dict.count(req->key())) {
         result->set_err(kvdefs::OK);
         result->set_value(dict[req->key()]);
@@ -237,6 +239,29 @@ void RunServer(const std::string& server_addr) {
 
 void cleanup() {
   zookeeper_close(zkhandle);
+}
+
+std::size_t generate_global_seq() {
+  int ret = zoo_create(zkhandle, "/globalseq", "", 0, &ZOO_OPEN_ACL_UNSAFE, 0, nullptr, 0);
+  if(ret && ret != ZNODEEXISTS) {
+    std::cerr << "Failed generating seq: " << ret << std::endl;
+    cleanup();
+    exit(EXIT_FAILURE);
+  }
+
+  const std::size_t buf_len = 100;
+  char buf[buf_len] = {0};
+
+  ret = zoo_create(zkhandle, "/globalseq/seq", "", 0,
+                    &ZOO_OPEN_ACL_UNSAFE, ZOO_EPHEMERAL|ZOO_SEQUENCE, buf, buf_len);
+  if(ret) {
+    std::cerr << "Failed generating seq: " << ret << std::endl;
+    cleanup();
+    exit(EXIT_FAILURE);
+  }
+
+  std::string seqstr(buf);
+  return std::stoi(seqstr.substr(15));
 }
 
 // zk callbacks
